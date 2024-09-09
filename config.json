@@ -1,5 +1,6 @@
 {
-    "source_folder": "",
-    "destination_folder": "",
-    "files_to_copy": []
+    "source_folder": "C:\\Users\\admin\\Desktop\\source_folder",
+    "destination_folder": "C:\\Users\\admin\\Desktop\\destination_folder",
+    "files_to_copy": ["example.txt"],
+    "copy_interval": 30
 }

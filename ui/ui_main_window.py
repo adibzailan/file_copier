@@ -1,0 +1,211 @@
+import os
+import json
+from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
+                             QLabel, QFileDialog, QListWidget, QSlider, QLineEdit)
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QFont, QIntValidator
+from .ui_file_watcher import FileWatcher
+from .ui_file_copier import FileCopier
+
+class MainWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("FILE COPIER")
+        self.setGeometry(100, 100, 800, 600)
+        self.setup_ui()
+        self.load_config()
+        self.start_file_copier()
+        self.file_watcher = None
+
+    def setup_ui(self):
+        main_widget = QWidget()
+        self.setCentralWidget(main_widget)
+        layout = QVBoxLayout()
+        main_widget.setLayout(layout)
+
+        # Title
+        title_label = QLabel("FILE COPIER")
+        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title_label.setFont(QFont("Arial", 24, QFont.Weight.Bold))
+        layout.addWidget(title_label)
+
+        # Source folder selection
+        source_layout = QHBoxLayout()
+        self.source_label = QLabel("SOURCE FOLDER:")
+        self.source_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+        self.source_path = QLabel()
+        self.source_path.setFont(QFont("Arial", 12))
+        self.source_button = QPushButton("SELECT")
+        self.source_button.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+        self.source_button.clicked.connect(self.select_source_folder)
+        source_layout.addWidget(self.source_label)
+        source_layout.addWidget(self.source_path)
+        source_layout.addWidget(self.source_button)
+        layout.addLayout(source_layout)
+
+        # Destination folder selection
+        dest_layout = QHBoxLayout()
+        self.dest_label = QLabel("DESTINATION FOLDER:")
+        self.dest_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+        self.dest_path = QLabel()
+        self.dest_path.setFont(QFont("Arial", 12))
+        self.dest_button = QPushButton("SELECT")
+        self.dest_button.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+        self.dest_button.clicked.connect(self.select_dest_folder)
+        dest_layout.addWidget(self.dest_label)
+        dest_layout.addWidget(self.dest_path)
+        dest_layout.addWidget(self.dest_button)
+        layout.addLayout(dest_layout)
+
+        # Copy interval slider and input
+        interval_layout = QHBoxLayout()
+        interval_label = QLabel("COPY INTERVAL (MINUTES):")
+        interval_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+        self.interval_slider = QSlider(Qt.Orientation.Horizontal)
+        self.interval_slider.setMinimum(1)
+        self.interval_slider.setMaximum(60)
+        self.interval_slider.setValue(30)
+        self.interval_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
+        self.interval_slider.setTickInterval(5)
+        self.interval_input = QLineEdit()
+        self.interval_input.setFont(QFont("Arial", 12))
+        self.interval_input.setValidator(QIntValidator(1, 60))
+        self.interval_input.setText("30")
+        self.interval_input.setFixedWidth(50)
+        self.interval_slider.valueChanged.connect(self.update_interval_input)
+        self.interval_input.textChanged.connect(self.update_interval_slider)
+        interval_layout.addWidget(interval_label)
+        interval_layout.addWidget(self.interval_slider)
+        interval_layout.addWidget(self.interval_input)
+        layout.addLayout(interval_layout)
+
+        # File list
+        file_list_label = QLabel("FILES TO COPY:")
+        file_list_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+        layout.addWidget(file_list_label)
+        self.file_list = QListWidget()
+        self.file_list.setFont(QFont("Arial", 12))
+        layout.addWidget(self.file_list)
+
+        # Status messages
+        status_label = QLabel("STATUS:")
+        status_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+        layout.addWidget(status_label)
+        self.status_list = QListWidget()
+        self.status_list.setFont(QFont("Arial", 12))
+        layout.addWidget(self.status_list)
+
+        # Apply styling
+        self.setStyleSheet("""
+            QMainWindow {
+                background-color: #1E1E1E;
+                color: #FFFFFF;
+            }
+            QLabel {
+                color: #FFFFFF;
+            }
+            QPushButton {
+                background-color: #FF4D00;
+                color: #FFFFFF;
+                border: none;
+                padding: 5px 10px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #FF6E00;
+            }
+            QListWidget {
+                background-color: #2D2D2D;
+                color: #FFFFFF;
+                border: 1px solid #FF4D00;
+            }
+            QSlider::groove:horizontal {
+                border: 1px solid #999999;
+                height: 8px;
+                background: #2D2D2D;
+                margin: 2px 0;
+            }
+            QSlider::handle:horizontal {
+                background: #FF4D00;
+                border: 1px solid #FF4D00;
+                width: 18px;
+                margin: -2px 0;
+                border-radius: 3px;
+            }
+            QLineEdit {
+                background-color: #2D2D2D;
+                color: #FFFFFF;
+                border: 1px solid #FF4D00;
+                padding: 2px;
+            }
+        """)
+
+    def update_interval_input(self, value):
+        self.interval_input.setText(str(value))
+
+    def update_interval_slider(self, text):
+        if text and text.isdigit():
+            value = int(text)
+            if 1 <= value <= 60:
+                self.interval_slider.setValue(value)
+
+    def load_config(self):
+        try:
+            with open('config.json', 'r') as config_file:
+                self.config = json.load(config_file)
+                self.source_path.setText(self.config['source_folder'])
+                self.dest_path.setText(self.config['destination_folder'])
+                self.file_list.addItems(self.config['files_to_copy'])
+                interval = self.config.get('copy_interval', 30)
+                self.interval_slider.setValue(interval)
+                self.interval_input.setText(str(interval))
+        except FileNotFoundError:
+            self.config = {
+                'source_folder': '',
+                'destination_folder': '',
+                'files_to_copy': [],
+                'copy_interval': 30
+            }
+
+    def save_config(self):
+        self.config['copy_interval'] = int(self.interval_input.text())
+        with open('config.json', 'w') as config_file:
+            json.dump(self.config, config_file)
+
+    def select_source_folder(self):
+        folder = QFileDialog.getExistingDirectory(self, "Select Source Folder")
+        if folder:
+            self.config['source_folder'] = folder
+            self.source_path.setText(folder)
+            self.save_config()
+            self.start_file_watcher()
+
+    def select_dest_folder(self):
+        folder = QFileDialog.getExistingDirectory(self, "Select Destination Folder")
+        if folder:
+            self.config['destination_folder'] = folder
+            self.dest_path.setText(folder)
+            self.save_config()
+
+    def start_file_copier(self):
+        self.file_copier = FileCopier(self.config)
+        self.file_copier.copy_completed.connect(self.update_status)
+        self.file_copier.start()
+
+    def start_file_watcher(self):
+        if self.file_watcher:
+            self.file_watcher.stop()
+        if os.path.exists(self.config['source_folder']):
+            self.file_watcher = FileWatcher(self.config['source_folder'], self.config['files_to_copy'])
+            self.file_watcher.file_changed.connect(self.on_file_changed)
+            self.file_watcher.start()
+            self.update_status("File watcher started for the source folder.")
+        else:
+            self.update_status("Source folder does not exist. Please select a valid folder.")
+
+    def on_file_changed(self, file_path):
+        self.file_copier.copy_files()
+
+    def update_status(self, message):
+        self.status_list.addItem(message)
+        self.status_list.scrollToBottom()
