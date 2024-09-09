@@ -1,153 +1,68 @@
-# File Copier
-
-File Copier is a robust, user-friendly application that allows you to automatically synchronize files from a source folder to a destination folder in real-time. It provides a graphical user interface for easy configuration and monitoring of the file synchronization process.
+# File Copier v1.1.0
 
 ## Features
 
-- Select source and destination folders through a graphical interface
-- Initial full copy when folders are first selected
-- Real-time file synchronization:
-  - Instant copying of newly added files
-  - Immediate updates for modified files
-  - Instant deletion of removed files (mirrored in destination folder)
-  - Real-time handling of file renaming/moving
-- Periodic full synchronization at specified intervals
-- Customizable synchronization interval (in minutes)
-- Real-time status updates and logging
-- Dark mode interface for comfortable usage
-- Fresh start on each launch (configuration is not persisted between sessions)
-
-## Requirements
-
-- Python 3.6 or higher
-- PyQt6
-- watchdog
+- Support for multiple copy sets (source-destination pairs)
+- Real-time, bidirectional synchronization for each copy set
+- User-friendly GUI with dark mode
+- Initial full copy when folders are first selected for each copy set
+- Periodic full synchronization at user-specified intervals (global setting for all copy sets)
+- Real-time monitoring and handling of file changes (create, modify, delete, rename) for each copy set
+- Customizable global synchronization interval
+- Add and remove copy sets dynamically
+- Built with PyQt6 and watchdog for robust performance
 
 ## Installation
 
-1. Clone this repository or download the source code.
-
-2. Install the required dependencies:
-
-```
-pip install -r requirements.txt
-```
+1. Download the standalone executable for your platform from the assets below.
+2. Run the executable to start the File Copier application.
 
 ## Usage
 
-To run the File Copier application, execute the following command in the project directory:
+1. Launch the File Copier application.
+2. Click "Add New Copy Set" to create a new source-destination pair.
+3. For each copy set:
+   - Click "SELECT" next to "Source:" to choose the source folder.
+   - Click "SELECT" next to "Destination:" to choose the destination folder.
+4. Set the global copy interval using the slider or input box at the bottom.
+5. Monitor the synchronization status for all copy sets in the status area.
+6. Add or remove copy sets as needed using the "Add New Copy Set" and "Remove" buttons.
 
-```
-python ui_main.py
-```
+## For Developers
 
-This will launch the graphical user interface. From here, you can:
+If you want to run the application from source or contribute to the project:
 
-1. Select the source folder by clicking the "SELECT" button next to "SOURCE FOLDER:"
-2. Select the destination folder by clicking the "SELECT" button next to "DESTINATION FOLDER:"
-3. Set the synchronization interval for full syncs using the slider or input box (real-time sync is always active)
-4. Monitor the status of the synchronization process in the status list
+1. Clone the repository:
+   ```
+   git clone https://github.com/adibzailan/file-copier.git
+   ```
 
-The application will perform the following actions:
+2. Install dependencies:
+   ```
+   pip install -r requirements.txt
+   ```
 
-1. Start watching the source folder for changes when it's selected
-2. Begin synchronization only after both source and destination folders are specified
-3. Perform an initial full copy of all files from the source to the destination folder
-4. Synchronize any changes in real-time, including:
-   - Copying new files
-   - Updating modified files
-   - Deleting files that are removed from the source folder
-   - Handling renamed or moved files
-5. Perform a full sync at the specified interval
+3. Run the application:
+   ```
+   python ui_main.py
+   ```
 
-## Packaging the Application
+## Feedback and Contributions
 
-To create a standalone executable that can be run on systems without Python installed, you can use PyInstaller. There are two methods to package the application:
+Feedback and contributions are always welcome to help improve the project! Please open an issue or submit a pull request on GitHub. Enjoy using File Copier!
 
-### Method 1: Using the PyInstaller script
+## Changelog
 
-Run the following command:
+### v1.1.0
+- Added support for multiple copy sets
+- Implemented dynamic adding and removing of copy sets
+- Updated UI to accommodate multiple copy sets
+- Improved status reporting to show events for each copy set
+- Global synchronization interval now applies to all copy sets
 
-```
-python pyinstaller_script.py
-```
-
-### Method 2: Running PyInstaller directly
-
-Run the following command:
-
-```
-pyinstaller --onefile --windowed ui_main.py
-```
-
-Both methods will create an executable file in the `dist` folder. You can distribute this executable to run the application on other systems without requiring Python or the dependencies to be installed.
-
-## Project Structure
-
-The project is organized into two main components: the user interface (ui) and the core logic (core).
-
-- `ui_main.py`: The main entry point of the application
-- `pyinstaller_script.py`: Script for packaging the application with PyInstaller
-- `requirements.txt`: List of Python dependencies
-- `ui/`: User Interface components
-  - `ui_main_window.py`: Contains the MainWindow class for the main application window
-  - `ui_file_watcher.py`: Contains FileWatcher class for real-time file monitoring
-  - `ui_file_copier.py`: Contains the FileCopier class for file operations and periodic full sync
-  - `components/`: Individual UI components
-    - `folder_selection.py`: FolderSelectionWidget for selecting source and destination folders
-    - `interval_settings.py`: IntervalSettingsWidget for setting the sync interval
-    - `status_list.py`: StatusListWidget for displaying status messages
-    - `footer.py`: FooterWidget for displaying the application footer
-- `core/`: Core logic components
-  - `app_logic.py`: Contains AppLogic class that manages the core application functionality
-  - `file_operations.py`: Contains FileOperations class for file-related operations
-  - `rename_logic.py`: Contains RenameLogic class for file renaming operations
-
-## How It Works
-
-1. **User Interface**: The GUI provides an easy way to configure the source and destination folders, set the full sync interval, and view real-time status updates of all synchronization activities.
-
-2. **Application Logic**: The core logic of the application is managed by the AppLogic class, which coordinates between the UI and the file operations.
-
-3. **Real-time File Watching**: The application uses the `watchdog` library to monitor the source folder for any file system events (creation, modification, deletion, moving/renaming).
-
-4. **Event Handling**: When a file event is detected, the application immediately processes the event:
-   - For new or modified files: The file is copied to the destination folder.
-   - For deleted files: The corresponding file in the destination folder is removed, ensuring that deletions in the source are mirrored in the destination.
-   - For moved/renamed files: The file is moved/renamed in the destination folder accordingly.
-
-5. **Periodic Full Sync**: In addition to real-time synchronization, the application performs a full synchronization at the user-specified interval. This ensures that any changes that might have been missed are accounted for.
-
-6. **Fresh Start**: When the application is closed, it deletes its configuration file. This ensures that each new start of the program begins with a clean slate.
-
-## Troubleshooting
-
-If you encounter any issues:
-
-1. Ensure that you have the correct permissions to read from the source folder and write to the destination folder.
-2. Check the status list in the application for any error messages.
-3. Make sure that all required dependencies are installed correctly.
-4. If the application doesn't start, try running it from the command line to see any error messages that might not be visible otherwise.
-
-## Testing File Deletion Sync
-
-To verify that file deletions in the source folder are correctly mirrored in the destination folder:
-
-1. Run the File Copier application and set up your source and destination folders.
-2. Add some test files to the source folder and allow them to sync to the destination folder.
-3. Delete a file from the source folder.
-4. Check the destination folder - the corresponding file should be automatically deleted.
-5. Look at the status messages in the application - you should see a message indicating that the file was deleted.
-
-## License
-
-This project is open-source and available under the MIT License.
-
-## Contributing
-
-Contributions to the File Copier project are welcome! Please feel free to submit pull requests, create issues or spread the word.
-
-## Acknowledgements
-
-- To be honest, this was built because I was having trouble figuring out how to get my Docker Compose for n8n to fetch files from specified folders 🤣 
-- Long Live Python!
+### v1.0.0
+- Initial release with single copy set functionality
+- Real-time, bidirectional synchronization between two folders
+- User-friendly GUI with dark mode
+- Initial full copy and periodic full synchronization
+- Real-time monitoring and handling of file changes

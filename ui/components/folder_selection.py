@@ -8,6 +8,7 @@ class FolderSelectionWidget(QWidget):
     def __init__(self, label_text, parent=None):
         super().__init__(parent)
         self.label_text = label_text
+        self.folder_path = ""
         self.setup_ui()
 
     def setup_ui(self):
@@ -29,11 +30,13 @@ class FolderSelectionWidget(QWidget):
     def select_folder(self):
         folder = QFileDialog.getExistingDirectory(self, f"Select {self.label_text}")
         if folder:
+            self.folder_path = folder
             self.path_label.setText(folder)
             self.folder_selected.emit(self.label_text, folder)
 
     def set_path(self, path):
+        self.folder_path = path
         self.path_label.setText(path)
 
     def get_path(self):
-        return self.path_label.text()
+        return self.folder_path

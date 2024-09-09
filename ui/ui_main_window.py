@@ -1,7 +1,7 @@
-from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QLabel
+from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QLabel, QScrollArea
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont, QCloseEvent
-from .components.folder_selection import FolderSelectionWidget
+from .components.copy_set import CopySetManager
 from .components.interval_settings import IntervalSettingsWidget
 from .components.status_list import StatusListWidget
 from .components.footer import FooterWidget
@@ -29,13 +29,12 @@ class MainWindow(QMainWindow):
         title_label.setFont(QFont("Arial", 24, QFont.Weight.Bold))
         layout.addWidget(title_label)
 
-        # Source folder selection
-        self.source_folder = FolderSelectionWidget("SOURCE FOLDER:")
-        layout.addWidget(self.source_folder)
-
-        # Destination folder selection
-        self.dest_folder = FolderSelectionWidget("DESTINATION FOLDER:")
-        layout.addWidget(self.dest_folder)
+        # Copy Set Manager
+        self.copy_set_manager = CopySetManager()
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setWidget(self.copy_set_manager)
+        layout.addWidget(scroll_area)
 
         # Copy interval settings
         self.interval_settings = IntervalSettingsWidget()
@@ -52,8 +51,9 @@ class MainWindow(QMainWindow):
         self.apply_styling()
 
     def connect_signals(self):
-        self.source_folder.folder_selected.connect(self.app_logic.set_source_folder)
-        self.dest_folder.folder_selected.connect(self.app_logic.set_destination_folder)
+        self.copy_set_manager.set_added.connect(self.app_logic.add_copy_set)
+        self.copy_set_manager.set_removed.connect(self.app_logic.remove_copy_set)
+        self.copy_set_manager.folders_updated.connect(self.app_logic.update_copy_set)
         self.interval_settings.interval_changed.connect(self.app_logic.set_copy_interval)
         self.app_logic.status_updated.connect(self.update_status)
 
@@ -99,6 +99,9 @@ class MainWindow(QMainWindow):
                 color: #FFFFFF;
                 border: 1px solid #FF4D00;
                 padding: 2px;
+            }
+            QScrollArea {
+                border: none;
             }
         """)
 

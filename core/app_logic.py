@@ -5,76 +5,106 @@ from ui.ui_file_watcher import FileWatcher
 from ui.ui_file_copier import FileCopier
 from core.file_operations import FileOperations
 
+class CopySet:
+    def __init__(self, set_id, source_folder='', destination_folder=''):
+        self.set_id = set_id
+        self.source_folder = source_folder
+        self.destination_folder = destination_folder
+        self.file_watcher = None
+        self.file_copier = None
+
 class AppLogic(QObject):
     status_updated = pyqtSignal(str)
 
     def __init__(self):
         super().__init__()
         self.config = {
-            'source_folder': '',
-            'destination_folder': '',
-            'copy_interval': 30
+            'copy_interval': 30,
+            'copy_sets': []
         }
-        self.file_copier = None
-        self.file_watcher = None
+        self.copy_sets = {}
 
     def load_config(self):
         try:
             with open('config.json', 'r') as config_file:
                 self.config = json.load(config_file)
+                for set_data in self.config['copy_sets']:
+                    copy_set = CopySet(set_data['set_id'], set_data['source_folder'], set_data['destination_folder'])
+                    self.copy_sets[copy_set.set_id] = copy_set
+                    self.start_file_watcher(copy_set)
+                    self.start_file_copier(copy_set)
         except FileNotFoundError:
             pass
 
     def save_config(self):
+        self.config['copy_sets'] = [
+            {'set_id': cs.set_id, 'source_folder': cs.source_folder, 'destination_folder': cs.destination_folder}
+            for cs in self.copy_sets.values()
+        ]
         with open('config.json', 'w') as config_file:
             json.dump(self.config, config_file)
 
-    def set_source_folder(self, folder):
-        self.config['source_folder'] = folder
+    def add_copy_set(self, copy_set_widget):
+        copy_set = CopySet(copy_set_widget.set_id)
+        self.copy_sets[copy_set.set_id] = copy_set
         self.save_config()
-        self.start_file_watcher()
-        self.check_start_file_copier()
 
-    def set_destination_folder(self, folder):
-        self.config['destination_folder'] = folder
+    def remove_copy_set(self, copy_set_widget):
+        copy_set = self.copy_sets.pop(copy_set_widget.set_id, None)
+        if copy_set:
+            if copy_set.file_watcher:
+                copy_set.file_watcher.stop()
+            if copy_set.file_copier:
+                copy_set.file_copier.stop()
         self.save_config()
-        self.check_start_file_copier()
+
+    def update_copy_set(self, copy_set_widget, source_folder, destination_folder):
+        copy_set = self.copy_sets.get(copy_set_widget.set_id)
+        if copy_set:
+            copy_set.source_folder = source_folder
+            copy_set.destination_folder = destination_folder
+            self.start_file_watcher(copy_set)
+            self.start_file_copier(copy_set)
+        self.save_config()
 
     def set_copy_interval(self, interval):
         self.config['copy_interval'] = interval
+        for copy_set in self.copy_sets.values():
+            if copy_set.file_copier:
+                copy_set.file_copier.config['copy_interval'] = interval
         self.save_config()
-        if self.file_copier:
-            self.file_copier.config['copy_interval'] = interval
 
-    def check_start_file_copier(self):
-        if self.config['source_folder'] and self.config['destination_folder']:
-            self.start_file_copier()
+    def start_file_watcher(self, copy_set):
+        if copy_set.file_watcher:
+            copy_set.file_watcher.stop()
+        if os.path.exists(copy_set.source_folder):
+            copy_set.file_watcher = FileWatcher(copy_set.source_folder)
+            copy_set.file_watcher.file_changed.connect(lambda *args: self.on_file_changed(copy_set, *args))
+            copy_set.file_watcher.start()
+            self.status_updated.emit(f"File watcher started for Copy Set {copy_set.set_id} source folder.")
         else:
-            self.status_updated.emit("Both source and destination folders must be specified to start synchronization.")
+            self.status_updated.emit(f"Source folder for Copy Set {copy_set.set_id} does not exist. Please select a valid folder.")
 
-    def start_file_copier(self):
-        if self.file_copier:
-            self.file_copier.stop()
-        self.file_copier = FileCopier(self.config)
-        self.file_copier.copy_completed.connect(self.status_updated.emit)
-        self.file_copier.resume()  # Start the copier
-        self.file_copier.start()
-        self.status_updated.emit("File copier started. Initial full synchronization will begin shortly.")
-
-    def start_file_watcher(self):
-        if self.file_watcher:
-            self.file_watcher.stop()
-        if os.path.exists(self.config['source_folder']):
-            self.file_watcher = FileWatcher(self.config['source_folder'])
-            self.file_watcher.file_changed.connect(self.on_file_changed)
-            self.file_watcher.start()
-            self.status_updated.emit("File watcher started for the source folder.")
+    def start_file_copier(self, copy_set):
+        if copy_set.file_copier:
+            copy_set.file_copier.stop()
+        if copy_set.source_folder and copy_set.destination_folder:
+            config = {
+                'source_folder': copy_set.source_folder,
+                'destination_folder': copy_set.destination_folder,
+                'copy_interval': self.config['copy_interval']
+            }
+            copy_set.file_copier = FileCopier(config)
+            copy_set.file_copier.copy_completed.connect(lambda msg: self.status_updated.emit(f"Copy Set {copy_set.set_id}: {msg}"))
+            copy_set.file_copier.resume()
+            copy_set.file_copier.start()
+            self.status_updated.emit(f"File copier started for Copy Set {copy_set.set_id}. Initial full synchronization will begin shortly.")
         else:
-            self.status_updated.emit("Source folder does not exist. Please select a valid folder.")
+            self.status_updated.emit(f"Both source and destination folders must be specified for Copy Set {copy_set.set_id} to start synchronization.")
 
-    def on_file_changed(self, event_type, src_path, dest_path=''):
-        source_folder = self.config['source_folder']
-        dest_folder = self.config['destination_folder']
+    def on_file_changed(self, copy_set, event_type, src_path, dest_path=''):
+        source_folder = copy_set.source_folder
+        dest_folder = copy_set.destination_folder
 
         if event_type == 'created' or event_type == 'modified':
             relative_path = os.path.relpath(src_path, source_folder)
@@ -93,13 +123,14 @@ class AppLogic(QObject):
         else:
             result = f"Unknown event type: {event_type}"
 
-        self.status_updated.emit(result)
+        self.status_updated.emit(f"Copy Set {copy_set.set_id}: {result}")
 
     def cleanup(self):
-        if self.file_copier:
-            self.file_copier.stop()
-        if self.file_watcher:
-            self.file_watcher.stop()
+        for copy_set in self.copy_sets.values():
+            if copy_set.file_copier:
+                copy_set.file_copier.stop()
+            if copy_set.file_watcher:
+                copy_set.file_watcher.stop()
         
         # Delete the config file
         try:
