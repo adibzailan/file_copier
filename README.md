@@ -1,14 +1,18 @@
 # File Copier
 
-File Copier is a simple, user-friendly application that allows you to automatically copy files from a source folder to a destination folder at specified intervals. It provides a graphical user interface for easy configuration and monitoring of the file copying process.
+File Copier is a robust, user-friendly application that allows you to automatically synchronize files from a source folder to a destination folder in real-time. It provides a graphical user interface for easy configuration and monitoring of the file synchronization process.
 
 ## Features
 
 - Select source and destination folders through a graphical interface
-- Specify files to be copied
-- Set custom copy intervals (in minutes)
-- Real-time status updates
-- File change detection and immediate copying
+- Real-time file synchronization:
+  - Instant copying of newly added files
+  - Immediate updates for modified files
+  - Instant deletion of removed files
+  - Real-time handling of file renaming/moving
+- Periodic full synchronization at specified intervals
+- Customizable synchronization interval (in minutes)
+- Real-time status updates and logging
 - Dark mode interface for comfortable usage
 
 ## Requirements
@@ -39,9 +43,10 @@ This will launch the graphical user interface. From here, you can:
 
 1. Select the source folder
 2. Select the destination folder
-3. Specify the files to be copied
-4. Set the copy interval
-5. Monitor the status of the copying process
+3. Set the synchronization interval for full syncs (real-time sync is always active)
+4. Monitor the status of the synchronization process
+
+The application will start watching the source folder for changes immediately and will perform a full sync at the specified interval.
 
 ## Packaging the Application
 
@@ -68,11 +73,24 @@ Both methods will create an executable file in the `dist` folder. You can distri
 ## File Structure
 
 - `ui_main.py`: The main entry point of the application
-- `ui/ui_main_window.py`: Contains the MainWindow class and UI setup
-- `ui/ui_file_watcher.py`: Contains FileWatcher and FileChangeHandler classes
-- `ui/ui_file_copier.py`: Contains the FileCopier class
+- `ui/ui_main_window.py`: Contains the MainWindow class, UI setup, and event handling
+- `ui/ui_file_watcher.py`: Contains FileWatcher class for real-time file monitoring
+- `ui/ui_file_copier.py`: Contains the FileCopier class for file operations
 - `pyinstaller_script.py`: Script for packaging the application with PyInstaller
 - `config.json`: Configuration file for storing user settings
+
+## How It Works
+
+1. **Real-time File Watching**: The application uses the `watchdog` library to monitor the source folder for any file system events (creation, modification, deletion, moving/renaming).
+
+2. **Event Handling**: When a file event is detected, the application immediately processes the event:
+   - For new or modified files: The file is copied to the destination folder.
+   - For deleted files: The corresponding file in the destination folder is removed.
+   - For moved/renamed files: The file is moved/renamed in the destination folder accordingly.
+
+3. **Periodic Full Sync**: In addition to real-time synchronization, the application performs a full synchronization at the user-specified interval. This ensures that any changes that might have been missed are accounted for.
+
+4. **User Interface**: The GUI provides an easy way to configure the source and destination folders, set the full sync interval, and view real-time status updates of all synchronization activities.
 
 ## License
 
