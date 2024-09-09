@@ -1,19 +1,19 @@
 import time
+import os
 from PyQt6.QtCore import QThread, pyqtSignal
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
 class FileWatcher(QThread):
-    file_changed = pyqtSignal(str)
+    file_changed = pyqtSignal(str, str)  # (event_type, file_path)
 
-    def __init__(self, path, files):
+    def __init__(self, path):
         super().__init__()
         self.path = path
-        self.files = files
         self.observer = None
 
     def run(self):
-        event_handler = FileChangeHandler(self.files, self.file_changed)
+        event_handler = FileChangeHandler(self.file_changed)
         self.observer = Observer()
         self.observer.schedule(event_handler, self.path, recursive=False)
         self.observer.start()
@@ -30,10 +30,21 @@ class FileWatcher(QThread):
             self.observer.join()
 
 class FileChangeHandler(FileSystemEventHandler):
-    def __init__(self, files, signal):
-        self.files = files
+    def __init__(self, signal):
         self.signal = signal
 
+    def on_created(self, event):
+        if not event.is_directory:
+            self.signal.emit('created', event.src_path)
+
+    def on_deleted(self, event):
+        if not event.is_directory:
+            self.signal.emit('deleted', event.src_path)
+
     def on_modified(self, event):
-        if not event.is_directory and event.src_path.split(os.path.sep)[-1] in self.files:
-            self.signal.emit(event.src_path)
+        if not event.is_directory:
+            self.signal.emit('modified', event.src_path)
+
+    def on_moved(self, event):
+        if not event.is_directory:
+            self.signal.emit('moved', f"{event.src_path}|{event.dest_path}")

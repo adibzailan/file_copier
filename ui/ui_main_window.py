@@ -1,5 +1,6 @@
 import os
 import json
+import shutil
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
                              QLabel, QFileDialog, QListWidget, QSlider, QLineEdit)
 from PyQt6.QtCore import Qt
@@ -196,15 +197,58 @@ class MainWindow(QMainWindow):
         if self.file_watcher:
             self.file_watcher.stop()
         if os.path.exists(self.config['source_folder']):
-            self.file_watcher = FileWatcher(self.config['source_folder'], self.config['files_to_copy'])
+            self.file_watcher = FileWatcher(self.config['source_folder'])
             self.file_watcher.file_changed.connect(self.on_file_changed)
             self.file_watcher.start()
             self.update_status("File watcher started for the source folder.")
         else:
             self.update_status("Source folder does not exist. Please select a valid folder.")
 
-    def on_file_changed(self, file_path):
-        self.file_copier.copy_files()
+    def on_file_changed(self, event_type, file_path):
+        source_folder = self.config['source_folder']
+        dest_folder = self.config['destination_folder']
+        relative_path = os.path.relpath(file_path, source_folder)
+        dest_path = os.path.join(dest_folder, relative_path)
+
+        if event_type == 'created' or event_type == 'modified':
+            self.copy_file(file_path, dest_path)
+        elif event_type == 'deleted':
+            self.delete_file(dest_path)
+        elif event_type == 'moved':
+            src_path, dest_path = file_path.split('|')
+            self.move_file(src_path, dest_path)
+
+    def copy_file(self, src_path, dest_path):
+        try:
+            os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+            shutil.copy2(src_path, dest_path)
+            self.update_status(f"File copied: {os.path.basename(src_path)}")
+        except Exception as e:
+            self.update_status(f"Error copying file: {str(e)}")
+
+    def delete_file(self, dest_path):
+        try:
+            if os.path.exists(dest_path):
+                os.remove(dest_path)
+                self.update_status(f"File deleted: {os.path.basename(dest_path)}")
+        except Exception as e:
+            self.update_status(f"Error deleting file: {str(e)}")
+
+    def move_file(self, src_path, dest_path):
+        source_folder = self.config['source_folder']
+        dest_folder = self.config['destination_folder']
+        relative_src = os.path.relpath(src_path, source_folder)
+        relative_dest = os.path.relpath(dest_path, source_folder)
+        dest_src_path = os.path.join(dest_folder, relative_src)
+        dest_dest_path = os.path.join(dest_folder, relative_dest)
+
+        try:
+            if os.path.exists(dest_src_path):
+                os.makedirs(os.path.dirname(dest_dest_path), exist_ok=True)
+                shutil.move(dest_src_path, dest_dest_path)
+                self.update_status(f"File moved: {os.path.basename(src_path)} to {os.path.basename(dest_path)}")
+        except Exception as e:
+            self.update_status(f"Error moving file: {str(e)}")
 
     def update_status(self, message):
         self.status_list.addItem(message)
