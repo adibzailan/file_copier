@@ -10,15 +10,23 @@ class FileCopier(QThread):
         super().__init__()
         self.config = config
         self.running = True
+        self.paused = True  # Add a paused state
 
     def run(self):
         while self.running:
-            self.full_sync()
-            time.sleep(self.config.get('copy_interval', 30) * 60)  # Convert minutes to seconds
+            if not self.paused:
+                self.full_sync()
+                time.sleep(self.config.get('copy_interval', 30) * 60)  # Convert minutes to seconds
+            else:
+                time.sleep(1)  # Check every second if we're still paused
 
     def full_sync(self):
-        source_folder = self.config['source_folder']
-        destination_folder = self.config['destination_folder']
+        source_folder = self.config.get('source_folder')
+        destination_folder = self.config.get('destination_folder')
+
+        if not source_folder or not destination_folder:
+            self.copy_completed.emit("Both source and destination folders must be specified.")
+            return
 
         self.copy_completed.emit("Starting full synchronization...")
 
@@ -61,3 +69,9 @@ class FileCopier(QThread):
 
     def stop(self):
         self.running = False
+
+    def pause(self):
+        self.paused = True
+
+    def resume(self):
+        self.paused = False

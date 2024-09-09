@@ -1,26 +1,21 @@
-import os
-import json
-from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QLabel
+from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QLabel, QScrollArea
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QFont
-from .ui_file_watcher import FileWatcher
-from .ui_file_copier import FileCopier
-from .components.folder_selection import FolderSelectionWidget
+from PyQt6.QtGui import QFont, QCloseEvent
+from .components.copy_set import CopySetManager
 from .components.interval_settings import IntervalSettingsWidget
 from .components.status_list import StatusListWidget
 from .components.footer import FooterWidget
-from core.file_operations import FileOperations
-from core.rename_logic import RenameLogic
+from core.app_logic import AppLogic
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("FILE COPIER")
         self.setGeometry(100, 100, 800, 600)
-        self.file_copier = None
-        self.file_watcher = None
+        self.app_logic = AppLogic()
         self.setup_ui()
-        self.load_config()
+        self.connect_signals()
+        self.app_logic.load_config()
 
     def setup_ui(self):
         main_widget = QWidget()
@@ -34,19 +29,15 @@ class MainWindow(QMainWindow):
         title_label.setFont(QFont("Arial", 24, QFont.Weight.Bold))
         layout.addWidget(title_label)
 
-        # Source folder selection
-        self.source_folder = FolderSelectionWidget("SOURCE FOLDER:")
-        self.source_folder.folder_selected.connect(self.on_source_folder_selected)
-        layout.addWidget(self.source_folder)
-
-        # Destination folder selection
-        self.dest_folder = FolderSelectionWidget("DESTINATION FOLDER:")
-        self.dest_folder.folder_selected.connect(self.on_dest_folder_selected)
-        layout.addWidget(self.dest_folder)
+        # Copy Set Manager
+        self.copy_set_manager = CopySetManager()
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setWidget(self.copy_set_manager)
+        layout.addWidget(scroll_area)
 
         # Copy interval settings
         self.interval_settings = IntervalSettingsWidget()
-        self.interval_settings.interval_changed.connect(self.on_interval_changed)
         layout.addWidget(self.interval_settings)
 
         # Status messages
@@ -58,6 +49,13 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.footer)
 
         self.apply_styling()
+
+    def connect_signals(self):
+        self.copy_set_manager.set_added.connect(self.app_logic.add_copy_set)
+        self.copy_set_manager.set_removed.connect(self.app_logic.remove_copy_set)
+        self.copy_set_manager.folders_updated.connect(self.app_logic.update_copy_set)
+        self.interval_settings.interval_changed.connect(self.app_logic.set_copy_interval)
+        self.app_logic.status_updated.connect(self.update_status)
 
     def apply_styling(self):
         self.setStyleSheet("""
@@ -102,99 +100,14 @@ class MainWindow(QMainWindow):
                 border: 1px solid #FF4D00;
                 padding: 2px;
             }
-        """)
-
-    def load_config(self):
-        try:
-            with open('config.json', 'r') as config_file:
-                self.config = json.load(config_file)
-                self.source_folder.set_path(self.config['source_folder'])
-                self.dest_folder.set_path(self.config['destination_folder'])
-                interval = self.config.get('copy_interval', 30)
-                self.interval_settings.set_interval(interval)
-                if self.config['source_folder'] and self.config['destination_folder']:
-                    self.start_file_watcher()
-                    self.start_file_copier()
-        except FileNotFoundError:
-            self.config = {
-                'source_folder': '',
-                'destination_folder': '',
-                'copy_interval': 30
+            QScrollArea {
+                border: none;
             }
-
-    def save_config(self):
-        self.config['copy_interval'] = self.interval_settings.get_interval()
-        with open('config.json', 'w') as config_file:
-            json.dump(self.config, config_file)
-
-    def on_source_folder_selected(self, label, folder):
-        self.config['source_folder'] = folder
-        self.save_config()
-        self.start_file_watcher()
-        self.start_file_copier()
-
-    def on_dest_folder_selected(self, label, folder):
-        self.config['destination_folder'] = folder
-        self.save_config()
-        if self.config['source_folder']:
-            self.start_file_copier()
-
-    def on_interval_changed(self, value):
-        self.config['copy_interval'] = value
-        self.save_config()
-        if self.file_copier:
-            self.file_copier.set_interval(value)
-
-    def start_file_copier(self):
-        if self.file_copier:
-            self.file_copier.stop()
-        self.file_copier = FileCopier(self.config)
-        self.file_copier.copy_completed.connect(self.update_status)
-        self.file_copier.start()
-        self.initial_full_copy()
-
-    def start_file_watcher(self):
-        if self.file_watcher:
-            self.file_watcher.stop()
-        if os.path.exists(self.config['source_folder']):
-            self.file_watcher = FileWatcher(self.config['source_folder'])
-            self.file_watcher.file_changed.connect(self.on_file_changed)
-            self.file_watcher.start()
-            self.update_status("File watcher started for the source folder.")
-        else:
-            self.update_status("Source folder does not exist. Please select a valid folder.")
-
-    def initial_full_copy(self):
-        source_folder = self.config['source_folder']
-        dest_folder = self.config['destination_folder']
-        if not (source_folder and dest_folder):
-            return
-
-        result = FileOperations.initial_full_copy(source_folder, dest_folder)
-        self.update_status(result)
-
-    def on_file_changed(self, event_type, src_path, dest_path=''):
-        source_folder = self.config['source_folder']
-        dest_folder = self.config['destination_folder']
-
-        if event_type == 'created' or event_type == 'modified':
-            relative_path = os.path.relpath(src_path, source_folder)
-            dest_path = os.path.join(dest_folder, relative_path)
-            result = FileOperations.copy_file(src_path, dest_path)
-        elif event_type == 'deleted':
-            relative_path = os.path.relpath(src_path, source_folder)
-            dest_path = os.path.join(dest_folder, relative_path)
-            result = FileOperations.delete_file(dest_path)
-        elif event_type == 'moved':
-            src_relative_path = os.path.relpath(src_path, source_folder)
-            dest_relative_path = os.path.relpath(dest_path, source_folder)
-            src_dest_path = os.path.join(dest_folder, src_relative_path)
-            new_dest_path = os.path.join(dest_folder, dest_relative_path)
-            result = FileOperations.move_file(src_dest_path, new_dest_path)
-        else:
-            result = f"Unknown event type: {event_type}"
-
-        self.update_status(result)
+        """)
 
     def update_status(self, message):
         self.status_list.add_status(message)
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        self.app_logic.cleanup()
+        event.accept()
