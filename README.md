@@ -15,6 +15,7 @@ File Copier is a robust, user-friendly application that allows you to automatica
 - Customizable synchronization interval (in minutes)
 - Real-time status updates and logging
 - Dark mode interface for comfortable usage
+- Fresh start on each launch (configuration is not persisted between sessions)
 
 ## Requirements
 
@@ -49,14 +50,15 @@ This will launch the graphical user interface. From here, you can:
 
 The application will perform the following actions:
 
-1. Perform an initial full copy of all files from the source to the destination folder when folders are first selected
-2. Start watching the source folder for changes immediately
-3. Synchronize any changes in real-time, including:
+1. Start watching the source folder for changes when it's selected
+2. Begin synchronization only after both source and destination folders are specified
+3. Perform an initial full copy of all files from the source to the destination folder
+4. Synchronize any changes in real-time, including:
    - Copying new files
    - Updating modified files
    - Deleting files that are removed from the source folder
    - Handling renamed or moved files
-4. Perform a full sync at the specified interval
+5. Perform a full sync at the specified interval
 
 ## Packaging the Application
 
@@ -82,14 +84,13 @@ Both methods will create an executable file in the `dist` folder. You can distri
 
 ## Project Structure
 
-The project is organized into two main components: the frontend (ui) and the backend (core).
+The project is organized into two main components: the user interface (ui) and the core logic (core).
 
 - `ui_main.py`: The main entry point of the application
-- `config.json`: Configuration file for storing user settings
 - `pyinstaller_script.py`: Script for packaging the application with PyInstaller
 - `requirements.txt`: List of Python dependencies
-- `ui/`: Frontend (UI) components
-  - `ui_main_window.py`: Contains the MainWindow class, UI setup, and event handling
+- `ui/`: User Interface components
+  - `ui_main_window.py`: Contains the MainWindow class for the main application window
   - `ui_file_watcher.py`: Contains FileWatcher class for real-time file monitoring
   - `ui_file_copier.py`: Contains the FileCopier class for file operations and periodic full sync
   - `components/`: Individual UI components
@@ -97,7 +98,8 @@ The project is organized into two main components: the frontend (ui) and the bac
     - `interval_settings.py`: IntervalSettingsWidget for setting the sync interval
     - `status_list.py`: StatusListWidget for displaying status messages
     - `footer.py`: FooterWidget for displaying the application footer
-- `core/`: Backend (logic) components
+- `core/`: Core logic components
+  - `app_logic.py`: Contains AppLogic class that manages the core application functionality
   - `file_operations.py`: Contains FileOperations class for file-related operations
   - `rename_logic.py`: Contains RenameLogic class for file renaming operations
 
@@ -105,7 +107,7 @@ The project is organized into two main components: the frontend (ui) and the bac
 
 1. **User Interface**: The GUI provides an easy way to configure the source and destination folders, set the full sync interval, and view real-time status updates of all synchronization activities.
 
-2. **Initial Full Copy**: When source and destination folders are first selected, the application performs a complete copy of all files from the source to the destination folder.
+2. **Application Logic**: The core logic of the application is managed by the AppLogic class, which coordinates between the UI and the file operations.
 
 3. **Real-time File Watching**: The application uses the `watchdog` library to monitor the source folder for any file system events (creation, modification, deletion, moving/renaming).
 
@@ -115,6 +117,8 @@ The project is organized into two main components: the frontend (ui) and the bac
    - For moved/renamed files: The file is moved/renamed in the destination folder accordingly.
 
 5. **Periodic Full Sync**: In addition to real-time synchronization, the application performs a full synchronization at the user-specified interval. This ensures that any changes that might have been missed are accounted for.
+
+6. **Fresh Start**: When the application is closed, it deletes its configuration file. This ensures that each new start of the program begins with a clean slate.
 
 ## Troubleshooting
 
