@@ -88,6 +88,12 @@ class MainWindow(QMainWindow):
         self.status_list.setFont(QFont("Arial", 12))
         layout.addWidget(self.status_list)
 
+        # Acknowledgement footer
+        footer_label = QLabel('Alpha 1.0.0 | Built in Singapore, <a href="https://www.linkedin.com/in/adibzailan/">AZ</a>')
+        footer_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        footer_label.setOpenExternalLinks(True)
+        layout.addWidget(footer_label)
+
         # Apply styling
         self.setStyleSheet("""
             QMainWindow {
