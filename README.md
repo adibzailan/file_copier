@@ -130,3 +130,8 @@ This project is open-source and available under the MIT License.
 ## Contributing
 
 Contributions to the File Copier project are welcome! Please feel free to submit pull requests, create issues or spread the word.
+
+## Acknowledgements
+
+- To be honest, this was built because i was having trouble figuring out how to get my Docker Compose for n8n to fetch files from specified folders 🤣 
+- Long Live Python!
