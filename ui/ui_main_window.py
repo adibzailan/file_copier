@@ -1,12 +1,16 @@
 import os
 import json
-import shutil
-from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
-                             QLabel, QFileDialog, QListWidget, QSlider, QLineEdit)
+from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QLabel
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QFont, QIntValidator
+from PyQt6.QtGui import QFont
 from .ui_file_watcher import FileWatcher
 from .ui_file_copier import FileCopier
+from .components.folder_selection import FolderSelectionWidget
+from .components.interval_settings import IntervalSettingsWidget
+from .components.status_list import StatusListWidget
+from .components.footer import FooterWidget
+from core.file_operations import FileOperations
+from core.rename_logic import RenameLogic
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -31,70 +35,31 @@ class MainWindow(QMainWindow):
         layout.addWidget(title_label)
 
         # Source folder selection
-        source_layout = QHBoxLayout()
-        self.source_label = QLabel("SOURCE FOLDER:")
-        self.source_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
-        self.source_path = QLabel()
-        self.source_path.setFont(QFont("Arial", 12))
-        self.source_button = QPushButton("SELECT")
-        self.source_button.setFont(QFont("Arial", 12, QFont.Weight.Bold))
-        self.source_button.clicked.connect(self.select_source_folder)
-        source_layout.addWidget(self.source_label)
-        source_layout.addWidget(self.source_path)
-        source_layout.addWidget(self.source_button)
-        layout.addLayout(source_layout)
+        self.source_folder = FolderSelectionWidget("SOURCE FOLDER:")
+        self.source_folder.folder_selected.connect(self.on_source_folder_selected)
+        layout.addWidget(self.source_folder)
 
         # Destination folder selection
-        dest_layout = QHBoxLayout()
-        self.dest_label = QLabel("DESTINATION FOLDER:")
-        self.dest_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
-        self.dest_path = QLabel()
-        self.dest_path.setFont(QFont("Arial", 12))
-        self.dest_button = QPushButton("SELECT")
-        self.dest_button.setFont(QFont("Arial", 12, QFont.Weight.Bold))
-        self.dest_button.clicked.connect(self.select_dest_folder)
-        dest_layout.addWidget(self.dest_label)
-        dest_layout.addWidget(self.dest_path)
-        dest_layout.addWidget(self.dest_button)
-        layout.addLayout(dest_layout)
+        self.dest_folder = FolderSelectionWidget("DESTINATION FOLDER:")
+        self.dest_folder.folder_selected.connect(self.on_dest_folder_selected)
+        layout.addWidget(self.dest_folder)
 
-        # Copy interval slider and input
-        interval_layout = QHBoxLayout()
-        interval_label = QLabel("COPY INTERVAL (MINUTES):")
-        interval_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
-        self.interval_slider = QSlider(Qt.Orientation.Horizontal)
-        self.interval_slider.setMinimum(1)
-        self.interval_slider.setMaximum(60)
-        self.interval_slider.setValue(30)
-        self.interval_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
-        self.interval_slider.setTickInterval(5)
-        self.interval_input = QLineEdit()
-        self.interval_input.setFont(QFont("Arial", 12))
-        self.interval_input.setValidator(QIntValidator(1, 60))
-        self.interval_input.setText("30")
-        self.interval_input.setFixedWidth(50)
-        self.interval_slider.valueChanged.connect(self.update_interval_input)
-        self.interval_input.textChanged.connect(self.update_interval_slider)
-        interval_layout.addWidget(interval_label)
-        interval_layout.addWidget(self.interval_slider)
-        interval_layout.addWidget(self.interval_input)
-        layout.addLayout(interval_layout)
+        # Copy interval settings
+        self.interval_settings = IntervalSettingsWidget()
+        self.interval_settings.interval_changed.connect(self.on_interval_changed)
+        layout.addWidget(self.interval_settings)
 
         # Status messages
-        status_label = QLabel("STATUS:")
-        status_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
-        layout.addWidget(status_label)
-        self.status_list = QListWidget()
-        self.status_list.setFont(QFont("Arial", 12))
+        self.status_list = StatusListWidget()
         layout.addWidget(self.status_list)
 
-        # Acknowledgement footer
-        footer_label = QLabel('Alpha 1.0.0 | Built in Singapore, <a href="https://www.linkedin.com/in/adibzailan/">AZ</a>')
-        footer_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        footer_label.setOpenExternalLinks(True)
-        layout.addWidget(footer_label)
+        # Footer
+        self.footer = FooterWidget()
+        layout.addWidget(self.footer)
 
-        # Apply styling
+        self.apply_styling()
+
+    def apply_styling(self):
         self.setStyleSheet("""
             QMainWindow {
                 background-color: #1E1E1E;
@@ -139,24 +104,14 @@ class MainWindow(QMainWindow):
             }
         """)
 
-    def update_interval_input(self, value):
-        self.interval_input.setText(str(value))
-
-    def update_interval_slider(self, text):
-        if text and text.isdigit():
-            value = int(text)
-            if 1 <= value <= 60:
-                self.interval_slider.setValue(value)
-
     def load_config(self):
         try:
             with open('config.json', 'r') as config_file:
                 self.config = json.load(config_file)
-                self.source_path.setText(self.config['source_folder'])
-                self.dest_path.setText(self.config['destination_folder'])
+                self.source_folder.set_path(self.config['source_folder'])
+                self.dest_folder.set_path(self.config['destination_folder'])
                 interval = self.config.get('copy_interval', 30)
-                self.interval_slider.setValue(interval)
-                self.interval_input.setText(str(interval))
+                self.interval_settings.set_interval(interval)
                 if self.config['source_folder'] and self.config['destination_folder']:
                     self.start_file_watcher()
                     self.start_file_copier()
@@ -168,27 +123,27 @@ class MainWindow(QMainWindow):
             }
 
     def save_config(self):
-        self.config['copy_interval'] = int(self.interval_input.text())
+        self.config['copy_interval'] = self.interval_settings.get_interval()
         with open('config.json', 'w') as config_file:
             json.dump(self.config, config_file)
 
-    def select_source_folder(self):
-        folder = QFileDialog.getExistingDirectory(self, "Select Source Folder")
-        if folder:
-            self.config['source_folder'] = folder
-            self.source_path.setText(folder)
-            self.save_config()
-            self.start_file_watcher()
+    def on_source_folder_selected(self, label, folder):
+        self.config['source_folder'] = folder
+        self.save_config()
+        self.start_file_watcher()
+        self.start_file_copier()
+
+    def on_dest_folder_selected(self, label, folder):
+        self.config['destination_folder'] = folder
+        self.save_config()
+        if self.config['source_folder']:
             self.start_file_copier()
 
-    def select_dest_folder(self):
-        folder = QFileDialog.getExistingDirectory(self, "Select Destination Folder")
-        if folder:
-            self.config['destination_folder'] = folder
-            self.dest_path.setText(folder)
-            self.save_config()
-            if self.config['source_folder']:
-                self.start_file_copier()
+    def on_interval_changed(self, value):
+        self.config['copy_interval'] = value
+        self.save_config()
+        if self.file_copier:
+            self.file_copier.set_interval(value)
 
     def start_file_copier(self):
         if self.file_copier:
@@ -215,14 +170,8 @@ class MainWindow(QMainWindow):
         if not (source_folder and dest_folder):
             return
 
-        self.update_status("Starting initial full copy...")
-        for root, dirs, files in os.walk(source_folder):
-            for file in files:
-                src_path = os.path.join(root, file)
-                rel_path = os.path.relpath(src_path, source_folder)
-                dest_path = os.path.join(dest_folder, rel_path)
-                self.copy_file(src_path, dest_path)
-        self.update_status("Initial full copy completed.")
+        result = FileOperations.initial_full_copy(source_folder, dest_folder)
+        self.update_status(result)
 
     def on_file_changed(self, event_type, src_path, dest_path=''):
         source_folder = self.config['source_folder']
@@ -231,43 +180,21 @@ class MainWindow(QMainWindow):
         if event_type == 'created' or event_type == 'modified':
             relative_path = os.path.relpath(src_path, source_folder)
             dest_path = os.path.join(dest_folder, relative_path)
-            self.copy_file(src_path, dest_path)
+            result = FileOperations.copy_file(src_path, dest_path)
         elif event_type == 'deleted':
             relative_path = os.path.relpath(src_path, source_folder)
             dest_path = os.path.join(dest_folder, relative_path)
-            self.delete_file(dest_path)
+            result = FileOperations.delete_file(dest_path)
         elif event_type == 'moved':
             src_relative_path = os.path.relpath(src_path, source_folder)
             dest_relative_path = os.path.relpath(dest_path, source_folder)
             src_dest_path = os.path.join(dest_folder, src_relative_path)
             new_dest_path = os.path.join(dest_folder, dest_relative_path)
-            self.move_file(src_dest_path, new_dest_path)
+            result = FileOperations.move_file(src_dest_path, new_dest_path)
+        else:
+            result = f"Unknown event type: {event_type}"
 
-    def copy_file(self, src_path, dest_path):
-        try:
-            os.makedirs(os.path.dirname(dest_path), exist_ok=True)
-            shutil.copy2(src_path, dest_path)
-            self.update_status(f"File copied: {os.path.basename(src_path)}")
-        except Exception as e:
-            self.update_status(f"Error copying file: {str(e)}")
-
-    def delete_file(self, dest_path):
-        try:
-            if os.path.exists(dest_path):
-                os.remove(dest_path)
-                self.update_status(f"File deleted: {os.path.basename(dest_path)}")
-        except Exception as e:
-            self.update_status(f"Error deleting file: {str(e)}")
-
-    def move_file(self, src_path, dest_path):
-        try:
-            if os.path.exists(src_path):
-                os.makedirs(os.path.dirname(dest_path), exist_ok=True)
-                shutil.move(src_path, dest_path)
-                self.update_status(f"File moved: {os.path.basename(src_path)} to {os.path.basename(dest_path)}")
-        except Exception as e:
-            self.update_status(f"Error moving file: {str(e)}")
+        self.update_status(result)
 
     def update_status(self, message):
-        self.status_list.addItem(message)
-        self.status_list.scrollToBottom()
+        self.status_list.add_status(message)

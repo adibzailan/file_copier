@@ -80,29 +80,41 @@ pyinstaller --onefile --windowed ui_main.py
 
 Both methods will create an executable file in the `dist` folder. You can distribute this executable to run the application on other systems without requiring Python or the dependencies to be installed.
 
-## File Structure
+## Project Structure
+
+The project is organized into two main components: the frontend (ui) and the backend (core).
 
 - `ui_main.py`: The main entry point of the application
-- `ui/ui_main_window.py`: Contains the MainWindow class, UI setup, and event handling
-- `ui/ui_file_watcher.py`: Contains FileWatcher class for real-time file monitoring
-- `ui/ui_file_copier.py`: Contains the FileCopier class for file operations and periodic full sync
-- `pyinstaller_script.py`: Script for packaging the application with PyInstaller
 - `config.json`: Configuration file for storing user settings
+- `pyinstaller_script.py`: Script for packaging the application with PyInstaller
+- `requirements.txt`: List of Python dependencies
+- `ui/`: Frontend (UI) components
+  - `ui_main_window.py`: Contains the MainWindow class, UI setup, and event handling
+  - `ui_file_watcher.py`: Contains FileWatcher class for real-time file monitoring
+  - `ui_file_copier.py`: Contains the FileCopier class for file operations and periodic full sync
+  - `components/`: Individual UI components
+    - `folder_selection.py`: FolderSelectionWidget for selecting source and destination folders
+    - `interval_settings.py`: IntervalSettingsWidget for setting the sync interval
+    - `status_list.py`: StatusListWidget for displaying status messages
+    - `footer.py`: FooterWidget for displaying the application footer
+- `core/`: Backend (logic) components
+  - `file_operations.py`: Contains FileOperations class for file-related operations
+  - `rename_logic.py`: Contains RenameLogic class for file renaming operations
 
 ## How It Works
 
-1. **Initial Full Copy**: When source and destination folders are first selected, the application performs a complete copy of all files from the source to the destination folder.
+1. **User Interface**: The GUI provides an easy way to configure the source and destination folders, set the full sync interval, and view real-time status updates of all synchronization activities.
 
-2. **Real-time File Watching**: The application uses the `watchdog` library to monitor the source folder for any file system events (creation, modification, deletion, moving/renaming).
+2. **Initial Full Copy**: When source and destination folders are first selected, the application performs a complete copy of all files from the source to the destination folder.
 
-3. **Event Handling**: When a file event is detected, the application immediately processes the event:
+3. **Real-time File Watching**: The application uses the `watchdog` library to monitor the source folder for any file system events (creation, modification, deletion, moving/renaming).
+
+4. **Event Handling**: When a file event is detected, the application immediately processes the event:
    - For new or modified files: The file is copied to the destination folder.
    - For deleted files: The corresponding file in the destination folder is removed, ensuring that deletions in the source are mirrored in the destination.
    - For moved/renamed files: The file is moved/renamed in the destination folder accordingly.
 
-4. **Periodic Full Sync**: In addition to real-time synchronization, the application performs a full synchronization at the user-specified interval. This ensures that any changes that might have been missed are accounted for.
-
-5. **User Interface**: The GUI provides an easy way to configure the source and destination folders, set the full sync interval, and view real-time status updates of all synchronization activities.
+5. **Periodic Full Sync**: In addition to real-time synchronization, the application performs a full synchronization at the user-specified interval. This ensures that any changes that might have been missed are accounted for.
 
 ## Troubleshooting
 
@@ -133,5 +145,5 @@ Contributions to the File Copier project are welcome! Please feel free to submit
 
 ## Acknowledgements
 
-- To be honest, this was built because i was having trouble figuring out how to get my Docker Compose for n8n to fetch files from specified folders 🤣 
+- To be honest, this was built because I was having trouble figuring out how to get my Docker Compose for n8n to fetch files from specified folders 🤣 
 - Long Live Python!
