@@ -13,10 +13,10 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("FILE COPIER")
         self.setGeometry(100, 100, 800, 600)
+        self.file_copier = None
+        self.file_watcher = None
         self.setup_ui()
         self.load_config()
-        self.start_file_copier()
-        self.file_watcher = None
 
     def setup_ui(self):
         main_widget = QWidget()
@@ -79,14 +79,6 @@ class MainWindow(QMainWindow):
         interval_layout.addWidget(self.interval_slider)
         interval_layout.addWidget(self.interval_input)
         layout.addLayout(interval_layout)
-
-        # File list
-        file_list_label = QLabel("FILES TO COPY:")
-        file_list_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
-        layout.addWidget(file_list_label)
-        self.file_list = QListWidget()
-        self.file_list.setFont(QFont("Arial", 12))
-        layout.addWidget(self.file_list)
 
         # Status messages
         status_label = QLabel("STATUS:")
@@ -156,15 +148,16 @@ class MainWindow(QMainWindow):
                 self.config = json.load(config_file)
                 self.source_path.setText(self.config['source_folder'])
                 self.dest_path.setText(self.config['destination_folder'])
-                self.file_list.addItems(self.config['files_to_copy'])
                 interval = self.config.get('copy_interval', 30)
                 self.interval_slider.setValue(interval)
                 self.interval_input.setText(str(interval))
+                if self.config['source_folder'] and self.config['destination_folder']:
+                    self.start_file_watcher()
+                    self.start_file_copier()
         except FileNotFoundError:
             self.config = {
                 'source_folder': '',
                 'destination_folder': '',
-                'files_to_copy': [],
                 'copy_interval': 30
             }
 
@@ -180,6 +173,7 @@ class MainWindow(QMainWindow):
             self.source_path.setText(folder)
             self.save_config()
             self.start_file_watcher()
+            self.start_file_copier()
 
     def select_dest_folder(self):
         folder = QFileDialog.getExistingDirectory(self, "Select Destination Folder")
@@ -187,11 +181,16 @@ class MainWindow(QMainWindow):
             self.config['destination_folder'] = folder
             self.dest_path.setText(folder)
             self.save_config()
+            if self.config['source_folder']:
+                self.start_file_copier()
 
     def start_file_copier(self):
+        if self.file_copier:
+            self.file_copier.stop()
         self.file_copier = FileCopier(self.config)
         self.file_copier.copy_completed.connect(self.update_status)
         self.file_copier.start()
+        self.initial_full_copy()
 
     def start_file_watcher(self):
         if self.file_watcher:
@@ -204,19 +203,39 @@ class MainWindow(QMainWindow):
         else:
             self.update_status("Source folder does not exist. Please select a valid folder.")
 
-    def on_file_changed(self, event_type, file_path):
+    def initial_full_copy(self):
         source_folder = self.config['source_folder']
         dest_folder = self.config['destination_folder']
-        relative_path = os.path.relpath(file_path, source_folder)
-        dest_path = os.path.join(dest_folder, relative_path)
+        if not (source_folder and dest_folder):
+            return
+
+        self.update_status("Starting initial full copy...")
+        for root, dirs, files in os.walk(source_folder):
+            for file in files:
+                src_path = os.path.join(root, file)
+                rel_path = os.path.relpath(src_path, source_folder)
+                dest_path = os.path.join(dest_folder, rel_path)
+                self.copy_file(src_path, dest_path)
+        self.update_status("Initial full copy completed.")
+
+    def on_file_changed(self, event_type, src_path, dest_path=''):
+        source_folder = self.config['source_folder']
+        dest_folder = self.config['destination_folder']
 
         if event_type == 'created' or event_type == 'modified':
-            self.copy_file(file_path, dest_path)
+            relative_path = os.path.relpath(src_path, source_folder)
+            dest_path = os.path.join(dest_folder, relative_path)
+            self.copy_file(src_path, dest_path)
         elif event_type == 'deleted':
+            relative_path = os.path.relpath(src_path, source_folder)
+            dest_path = os.path.join(dest_folder, relative_path)
             self.delete_file(dest_path)
         elif event_type == 'moved':
-            src_path, dest_path = file_path.split('|')
-            self.move_file(src_path, dest_path)
+            src_relative_path = os.path.relpath(src_path, source_folder)
+            dest_relative_path = os.path.relpath(dest_path, source_folder)
+            src_dest_path = os.path.join(dest_folder, src_relative_path)
+            new_dest_path = os.path.join(dest_folder, dest_relative_path)
+            self.move_file(src_dest_path, new_dest_path)
 
     def copy_file(self, src_path, dest_path):
         try:
@@ -235,17 +254,10 @@ class MainWindow(QMainWindow):
             self.update_status(f"Error deleting file: {str(e)}")
 
     def move_file(self, src_path, dest_path):
-        source_folder = self.config['source_folder']
-        dest_folder = self.config['destination_folder']
-        relative_src = os.path.relpath(src_path, source_folder)
-        relative_dest = os.path.relpath(dest_path, source_folder)
-        dest_src_path = os.path.join(dest_folder, relative_src)
-        dest_dest_path = os.path.join(dest_folder, relative_dest)
-
         try:
-            if os.path.exists(dest_src_path):
-                os.makedirs(os.path.dirname(dest_dest_path), exist_ok=True)
-                shutil.move(dest_src_path, dest_dest_path)
+            if os.path.exists(src_path):
+                os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+                shutil.move(src_path, dest_path)
                 self.update_status(f"File moved: {os.path.basename(src_path)} to {os.path.basename(dest_path)}")
         except Exception as e:
             self.update_status(f"Error moving file: {str(e)}")
