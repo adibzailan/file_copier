@@ -1,10 +1,10 @@
-# File Copier v1.1.0
+# File Copier v1.2.0
 
 ## Features
 
 - Support for multiple copy sets (source-destination pairs)
 - Real-time, bidirectional synchronization for each copy set
-- User-friendly GUI with dark mode
+- User-friendly GUI with improved visibility and contrast
 - Initial full copy when folders are first selected for each copy set
 - Periodic full synchronization at user-specified intervals (global setting for all copy sets)
 - Real-time monitoring and handling of file changes (create, modify, delete, rename) for each copy set
@@ -47,11 +47,24 @@ If you want to run the application from source or contribute to the project:
    python ui_main.py
    ```
 
+4. To package the application:
+   ```
+   python pyinstaller_script.py
+   ```
+   The packaged executable will be in the 'dist' folder.
+
 ## Feedback and Contributions
 
 Feedback and contributions are always welcome to help improve the project! Please open an issue or submit a pull request on GitHub. Enjoy using File Copier!
 
 ## Changelog
+
+### v1.2.0
+- Improved UI visibility and contrast
+- Updated status list to ensure text is clearly visible
+- Refined layout for better usability
+- Updated PyInstaller script for improved packaging
+- Added instructions for packaging the application in the README
 
 ### v1.1.0
 - Added support for multiple copy sets

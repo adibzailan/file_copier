@@ -13,8 +13,8 @@ class IntervalSettingsWidget(QWidget):
         layout = QHBoxLayout()
         self.setLayout(layout)
 
-        interval_label = QLabel("COPY INTERVAL (MINUTES):")
-        interval_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+        interval_label = QLabel("Copy Interval (minutes):")
+        interval_label.setFont(QFont("Cerebri Sans", 16, QFont.Weight.Bold))
 
         self.interval_slider = QSlider(Qt.Orientation.Horizontal)
         self.interval_slider.setMinimum(1)
@@ -24,7 +24,7 @@ class IntervalSettingsWidget(QWidget):
         self.interval_slider.setTickInterval(5)
 
         self.interval_input = QLineEdit()
-        self.interval_input.setFont(QFont("Arial", 12))
+        self.interval_input.setFont(QFont("Hanken Grotesk", 16))
         self.interval_input.setValidator(QIntValidator(1, 60))
         self.interval_input.setText("30")
         self.interval_input.setFixedWidth(50)
@@ -35,6 +35,36 @@ class IntervalSettingsWidget(QWidget):
         layout.addWidget(interval_label)
         layout.addWidget(self.interval_slider)
         layout.addWidget(self.interval_input)
+
+        self.setStyleSheet("""
+            QLabel {
+                color: #333333;
+                font-size: 16px;
+                font-weight: bold;
+            }
+            QSlider::groove:horizontal {
+                border: 1px solid #E0E0E0;
+                height: 8px;
+                background: #FFFFFF;
+                margin: 2px 0;
+                border-radius: 4px;
+            }
+            QSlider::handle:horizontal {
+                background: #FF6F61;
+                border: 1px solid #FF6F61;
+                width: 18px;
+                margin: -2px 0;
+                border-radius: 9px;
+            }
+            QLineEdit {
+                background-color: #FFFFFF;
+                color: #333333;
+                border: 2px solid #E0E0E0;
+                padding: 4px 8px;
+                border-radius: 8px;
+                font-size: 16px;
+            }
+        """)
 
     def update_interval_input(self, value):
         self.interval_input.setText(str(value))
