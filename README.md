@@ -1,4 +1,4 @@
-# File Copier v1.2.2
+# File Copier v1.2.3
 
 ## Features
 
@@ -12,6 +12,7 @@
 - Add and remove copy sets dynamically
 - Detailed status messages for better tracking of synchronization process
 - Countdown timer displaying time until next synchronization
+- Cooldown mechanism to prevent excessive synchronization
 - Built with PyQt6 and watchdog for robust performance
 
 ## Installation
@@ -61,6 +62,13 @@ Feedback and contributions are always welcome to help improve the project! Pleas
 
 ## Changelog
 
+For detailed changelog information, please refer to the RELEASE_vX.X.X.md files in the changelog folder.
+
+### v1.2.3
+- Fixed issues with timer countdown not starting properly
+- Implemented cooldown mechanism to prevent excessive synchronization
+- Improved overall stability and performance
+
 ### v1.2.2
 - Implemented robust "full rebuild" feature for complete synchronization
 - Added countdown timer for next synchronization
@@ -72,10 +80,3 @@ Feedback and contributions are always welcome to help improve the project! Pleas
 - Fixed PyInstaller script to create a standalone executable
 - Improved status messages and UI for better synchronization tracking
 - Resolved issues with file copying at specified intervals
-
-### v1.2.0
-- Improved UI visibility and contrast
-- Updated status list to ensure text is clearly visible
-- Refined layout for better usability
-- Updated PyInstaller script for improved packaging
-- Added instructions for packaging the application in the README

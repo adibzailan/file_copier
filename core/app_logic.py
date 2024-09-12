@@ -2,6 +2,7 @@ import os
 import json
 import time
 from PyQt6.QtCore import QObject, pyqtSignal, QTimer
+
 from ui.ui_file_watcher import FileWatcher
 from ui.ui_file_copier import FileCopier
 from core.file_operations import FileOperations
@@ -28,6 +29,8 @@ class AppLogic(QObject):
         self.countdown_timer = QTimer(self)
         self.countdown_timer.timeout.connect(self.update_countdown)
         self.countdown_remaining = 0
+        self.last_sync_time = 0
+        self.sync_cooldown = 5  # 5 seconds cooldown between syncs
 
     def load_config(self):
         try:
@@ -38,6 +41,7 @@ class AppLogic(QObject):
                     self.copy_sets[copy_set.set_id] = copy_set
                     self.start_file_watcher(copy_set)
                     self.start_file_copier(copy_set)
+            self.restart_countdown()
         except FileNotFoundError:
             pass
 
@@ -104,9 +108,7 @@ class AppLogic(QObject):
             copy_set.file_copier.copy_completed.connect(lambda msg: self.on_copy_completed(copy_set, msg))
             copy_set.file_copier.sync_started.connect(lambda: self.on_sync_started(copy_set))
             copy_set.file_copier.resume()
-            copy_set.file_copier.start()
             self.status_updated.emit(f"File copier started for Copy Set {copy_set.set_id}. Initial full synchronization will begin shortly.")
-            self.restart_countdown()
         else:
             self.status_updated.emit(f"Both source and destination folders must be specified for Copy Set {copy_set.set_id} to start synchronization.")
 
@@ -135,8 +137,6 @@ class AppLogic(QObject):
 
     def on_copy_completed(self, copy_set, msg):
         self.status_updated.emit(f"Copy Set {copy_set.set_id}: {msg}")
-        self.status_updated.emit(f"Copy Set {copy_set.set_id}: Synchronization completed.")
-        self.restart_countdown()
 
     def on_sync_started(self, copy_set):
         self.status_updated.emit(f"Copy Set {copy_set.set_id}: Starting synchronization...")
@@ -150,7 +150,22 @@ class AppLogic(QObject):
         self.countdown_updated.emit(self.countdown_remaining)
         self.countdown_remaining -= 1
         if self.countdown_remaining < 0:
-            self.countdown_timer.stop()
+            self.sync_all_copy_sets()
+
+    def sync_all_copy_sets(self):
+        current_time = time.time()
+        if current_time - self.last_sync_time < self.sync_cooldown:
+            self.status_updated.emit("Sync cooldown in effect. Skipping this sync cycle.")
+            self.restart_countdown()
+            return
+
+        self.status_updated.emit("Starting synchronization for all copy sets...")
+        for copy_set in self.copy_sets.values():
+            if copy_set.file_copier:
+                copy_set.file_copier.full_sync()
+        self.status_updated.emit("Synchronization completed for all copy sets.")
+        self.last_sync_time = current_time
+        self.restart_countdown()
 
     def cleanup(self):
         for copy_set in self.copy_sets.values():
