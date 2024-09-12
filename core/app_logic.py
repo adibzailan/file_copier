@@ -1,6 +1,7 @@
 import os
 import json
-from PyQt6.QtCore import QObject, pyqtSignal
+import time
+from PyQt6.QtCore import QObject, pyqtSignal, QTimer
 from ui.ui_file_watcher import FileWatcher
 from ui.ui_file_copier import FileCopier
 from core.file_operations import FileOperations
@@ -15,6 +16,7 @@ class CopySet:
 
 class AppLogic(QObject):
     status_updated = pyqtSignal(str)
+    countdown_updated = pyqtSignal(int)
 
     def __init__(self):
         super().__init__()
@@ -23,6 +25,9 @@ class AppLogic(QObject):
             'copy_sets': []
         }
         self.copy_sets = {}
+        self.countdown_timer = QTimer(self)
+        self.countdown_timer.timeout.connect(self.update_countdown)
+        self.countdown_remaining = 0
 
     def load_config(self):
         try:
@@ -73,6 +78,7 @@ class AppLogic(QObject):
             if copy_set.file_copier:
                 copy_set.file_copier.config['copy_interval'] = interval
         self.save_config()
+        self.restart_countdown()
 
     def start_file_watcher(self, copy_set):
         if copy_set.file_watcher:
@@ -95,10 +101,12 @@ class AppLogic(QObject):
                 'copy_interval': self.config['copy_interval']
             }
             copy_set.file_copier = FileCopier(config)
-            copy_set.file_copier.copy_completed.connect(lambda msg: self.status_updated.emit(f"Copy Set {copy_set.set_id}: {msg}"))
+            copy_set.file_copier.copy_completed.connect(lambda msg: self.on_copy_completed(copy_set, msg))
+            copy_set.file_copier.sync_started.connect(lambda: self.on_sync_started(copy_set))
             copy_set.file_copier.resume()
             copy_set.file_copier.start()
             self.status_updated.emit(f"File copier started for Copy Set {copy_set.set_id}. Initial full synchronization will begin shortly.")
+            self.restart_countdown()
         else:
             self.status_updated.emit(f"Both source and destination folders must be specified for Copy Set {copy_set.set_id} to start synchronization.")
 
@@ -124,6 +132,25 @@ class AppLogic(QObject):
             result = f"Unknown event type: {event_type}"
 
         self.status_updated.emit(f"Copy Set {copy_set.set_id}: {result}")
+
+    def on_copy_completed(self, copy_set, msg):
+        self.status_updated.emit(f"Copy Set {copy_set.set_id}: {msg}")
+        self.status_updated.emit(f"Copy Set {copy_set.set_id}: Synchronization completed.")
+        self.restart_countdown()
+
+    def on_sync_started(self, copy_set):
+        self.status_updated.emit(f"Copy Set {copy_set.set_id}: Starting synchronization...")
+
+    def restart_countdown(self):
+        self.countdown_remaining = self.config['copy_interval'] * 60
+        self.countdown_timer.start(1000)  # Update every second
+        self.update_countdown()
+
+    def update_countdown(self):
+        self.countdown_updated.emit(self.countdown_remaining)
+        self.countdown_remaining -= 1
+        if self.countdown_remaining < 0:
+            self.countdown_timer.stop()
 
     def cleanup(self):
         for copy_set in self.copy_sets.values():

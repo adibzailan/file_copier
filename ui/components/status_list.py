@@ -50,9 +50,13 @@ class StatusListWidget(QWidget):
             }
         """)
 
-    def add_status(self, message):
+    def add_status(self, message, is_important=False):
         item = QListWidgetItem(message)
-        item.setForeground(QColor("#333333"))  # Set text color to dark gray
+        if is_important:
+            item.setForeground(QColor("#FF6F61"))  # Set text color to accent color for important messages
+            item.setFont(QFont("Hanken Grotesk", 14, QFont.Weight.Bold))
+        else:
+            item.setForeground(QColor("#333333"))  # Set text color to dark gray for normal messages
         self.status_list.addItem(item)
         self.status_list.scrollToBottom()
         print(f"Debug: Status added to list - {message}")

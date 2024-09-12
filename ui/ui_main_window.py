@@ -17,7 +17,6 @@ class MainWindow(QMainWindow):
         self.setup_ui()
         self.connect_signals()
         self.app_logic.load_config()
-        self.add_test_status()
 
     def load_fonts(self):
         font_dir = "resources/fonts/"
@@ -70,14 +69,15 @@ class MainWindow(QMainWindow):
         self.interval_settings = IntervalSettingsWidget()
         right_layout.addWidget(self.interval_settings)
 
+        # Countdown timer
+        self.countdown_label = QLabel("Next sync in: --:--")
+        self.countdown_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.countdown_label.setFont(QFont("Hanken Grotesk", 16, QFont.Weight.Bold))
+        right_layout.addWidget(self.countdown_label)
+
         # Status messages
         self.status_list = StatusListWidget()
         right_layout.addWidget(self.status_list)
-
-        # Test button
-        test_button = QPushButton("Add Test Status")
-        test_button.clicked.connect(self.add_test_status)
-        right_layout.addWidget(test_button)
 
         # Footer
         self.footer = FooterWidget()
@@ -99,6 +99,7 @@ class MainWindow(QMainWindow):
         self.copy_set_manager.folders_updated.connect(self.app_logic.update_copy_set)
         self.interval_settings.interval_changed.connect(self.app_logic.set_copy_interval)
         self.app_logic.status_updated.connect(self.update_status)
+        self.app_logic.countdown_updated.connect(self.update_countdown)
 
     def apply_styling(self):
         self.setStyleSheet("""
@@ -154,11 +155,16 @@ class MainWindow(QMainWindow):
         """)
 
     def update_status(self, message):
-        self.status_list.add_status(message)
-        print(f"Debug: Status added - {message}")
+        if "Starting synchronization" in message:
+            self.status_list.add_status(message, is_important=True)
+        elif "Synchronization completed" in message:
+            self.status_list.add_status(message, is_important=True)
+        else:
+            self.status_list.add_status(message)
 
-    def add_test_status(self):
-        self.update_status("Test status message")
+    def update_countdown(self, seconds_remaining):
+        minutes, seconds = divmod(seconds_remaining, 60)
+        self.countdown_label.setText(f"Next sync in: {minutes:02d}:{seconds:02d}")
 
     def closeEvent(self, event: QCloseEvent) -> None:
         self.app_logic.cleanup()
