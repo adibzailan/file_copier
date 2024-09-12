@@ -1,4 +1,4 @@
-# File Copier v1.2.0
+# File Copier v1.2.2
 
 ## Features
 
@@ -6,10 +6,12 @@
 - Real-time, bidirectional synchronization for each copy set
 - User-friendly GUI with improved visibility and contrast
 - Initial full copy when folders are first selected for each copy set
-- Periodic full synchronization at user-specified intervals (global setting for all copy sets)
+- Robust "full rebuild" feature ensuring complete synchronization at specified intervals
 - Real-time monitoring and handling of file changes (create, modify, delete, rename) for each copy set
 - Customizable global synchronization interval
 - Add and remove copy sets dynamically
+- Detailed status messages for better tracking of synchronization process
+- Countdown timer displaying time until next synchronization
 - Built with PyQt6 and watchdog for robust performance
 
 ## Installation
@@ -25,7 +27,7 @@
    - Click "SELECT" next to "Source:" to choose the source folder.
    - Click "SELECT" next to "Destination:" to choose the destination folder.
 4. Set the global copy interval using the slider or input box at the bottom.
-5. Monitor the synchronization status for all copy sets in the status area.
+5. Monitor the synchronization status and countdown timer for all copy sets in the status area.
 6. Add or remove copy sets as needed using the "Add New Copy Set" and "Remove" buttons.
 
 ## For Developers
@@ -59,23 +61,21 @@ Feedback and contributions are always welcome to help improve the project! Pleas
 
 ## Changelog
 
+### v1.2.2
+- Implemented robust "full rebuild" feature for complete synchronization
+- Added countdown timer for next synchronization
+- Improved reliability of file copying at specified intervals
+- Enhanced status messages with more detailed synchronization information
+- Fixed issues with file updates in destination folders
+
+### v1.2.1
+- Fixed PyInstaller script to create a standalone executable
+- Improved status messages and UI for better synchronization tracking
+- Resolved issues with file copying at specified intervals
+
 ### v1.2.0
 - Improved UI visibility and contrast
 - Updated status list to ensure text is clearly visible
 - Refined layout for better usability
 - Updated PyInstaller script for improved packaging
 - Added instructions for packaging the application in the README
-
-### v1.1.0
-- Added support for multiple copy sets
-- Implemented dynamic adding and removing of copy sets
-- Updated UI to accommodate multiple copy sets
-- Improved status reporting to show events for each copy set
-- Global synchronization interval now applies to all copy sets
-
-### v1.0.0
-- Initial release with single copy set functionality
-- Real-time, bidirectional synchronization between two folders
-- User-friendly GUI with dark mode
-- Initial full copy and periodic full synchronization
-- Real-time monitoring and handling of file changes
