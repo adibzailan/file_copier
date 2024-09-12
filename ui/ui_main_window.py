@@ -4,7 +4,7 @@ from PyQt6.QtGui import QFont, QFontDatabase, QCloseEvent
 from .components.copy_set import CopySetManager
 from .components.interval_settings import IntervalSettingsWidget
 from .components.status_list import StatusListWidget
-from .components.footer import FooterWidget
+from .components.footer import FooterWidget  # Ensure this import is correct
 from core.app_logic import AppLogic
 
 class MainWindow(QMainWindow):
@@ -44,12 +44,6 @@ class MainWindow(QMainWindow):
         left_layout.setSpacing(16)
         left_panel.setLayout(left_layout)
 
-        # Title
-        title_label = QLabel("File Copier")
-        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title_label.setFont(QFont("Cerebri Sans", 32, QFont.Weight.Bold))
-        left_layout.addWidget(title_label)
-
         # Copy Set Manager
         self.copy_set_manager = CopySetManager()
         copy_set_scroll = QScrollArea()
@@ -80,7 +74,7 @@ class MainWindow(QMainWindow):
         right_layout.addWidget(self.status_list)
 
         # Footer
-        self.footer = FooterWidget()
+        self.footer = FooterWidget(version="1.2.4")
         right_layout.addWidget(self.footer)
 
         # Add left and right panels to main layout
@@ -113,7 +107,7 @@ class MainWindow(QMainWindow):
                 font-size: 14px;
             }
             QPushButton {
-                background-color: #FF6F61;
+                background-color: #4ECDC4;
                 color: #F5F5F5;
                 border: none;
                 padding: 8px 16px;
@@ -123,7 +117,7 @@ class MainWindow(QMainWindow):
                 font-size: 14px;
             }
             QPushButton:hover {
-                background-color: #FF8D82;
+                background-color: #45B7AE;
             }
             QScrollArea {
                 border: none;
@@ -136,7 +130,7 @@ class MainWindow(QMainWindow):
                 margin: 0px 0px 0px 0px;
             }
             QScrollBar::handle:vertical {
-                background: #FF6F61;
+                background: #4ECDC4;
                 min-height: 20px;
                 border-radius: 5px;
             }

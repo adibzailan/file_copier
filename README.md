@@ -1,4 +1,4 @@
-# File Copier v1.2.3
+# File Copier v1.2.4
 
 ## Features
 
@@ -64,6 +64,13 @@ Feedback and contributions are always welcome to help improve the project! Pleas
 
 For detailed changelog information, please refer to the RELEASE_vX.X.X.md files in the changelog folder.
 
+### v1.2.4
+- Updated UI design to align with Studio Merpati brand guidelines
+- Removed redundant "File Copier" text from the main window
+- Updated footer to display version and build information
+- Changed color scheme to use soft teal (#4ECDC4) for buttons and UI elements
+- Improved overall visual consistency and user experience
+
 ### v1.2.3
 - Fixed issues with timer countdown not starting properly
 - Implemented cooldown mechanism to prevent excessive synchronization
@@ -75,8 +82,3 @@ For detailed changelog information, please refer to the RELEASE_vX.X.X.md files 
 - Improved reliability of file copying at specified intervals
 - Enhanced status messages with more detailed synchronization information
 - Fixed issues with file updates in destination folders
-
-### v1.2.1
-- Fixed PyInstaller script to create a standalone executable
-- Improved status messages and UI for better synchronization tracking
-- Resolved issues with file copying at specified intervals
