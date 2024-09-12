@@ -29,6 +29,7 @@ Thumbs.db
 
 # Compiled Python files
 *.pyc
+*.spec
 
 # Logs
 *.log
