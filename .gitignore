@@ -1,0 +1,41 @@
+# Ignore contents of resources, studio_merpati_references, and changelog folders
+/resources/*
+/studio_merpati_references/*
+/changelog/*
+
+# But keep the folders themselves
+!/resources/.gitkeep
+!/studio_merpati_references/.gitkeep
+!/changelog/.gitkeep
+
+# Python-specific ignores
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+env/
+*.venv
+*.env
+
+# IDE-specific files
+.vscode/
+.idea/
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Compiled Python files
+*.pyc
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+
+# Build outputs
+/build/
+/dist/
