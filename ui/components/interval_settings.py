@@ -76,10 +76,21 @@ class IntervalSettingsWidget(QWidget):
             if 1 <= value <= 60:
                 self.interval_slider.setValue(value)
                 self.interval_changed.emit(value)
+            else:
+                # If the value is out of range, set it to the nearest valid value
+                value = max(1, min(60, value))
+                self.interval_slider.setValue(value)
+                self.interval_input.setText(str(value))
+                self.interval_changed.emit(value)
 
     def set_interval(self, value):
+        value = max(1, min(60, value))
         self.interval_slider.setValue(value)
         self.interval_input.setText(str(value))
 
     def get_interval(self):
-        return int(self.interval_input.text())
+        try:
+            value = int(self.interval_input.text())
+            return max(1, min(60, value))
+        except ValueError:
+            return 30  # Default value if conversion fails
