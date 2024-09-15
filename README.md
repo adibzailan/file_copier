@@ -1,4 +1,4 @@
-# File Copier v1.2.4
+# File Copier v1.2.5
 
 ## Features
 
@@ -14,6 +14,7 @@
 - Countdown timer displaying time until next synchronization
 - Cooldown mechanism to prevent excessive synchronization
 - Built with PyQt6 and watchdog for robust performance
+- Comprehensive unit tests for all UI components
 
 ## Installation
 
@@ -56,6 +57,11 @@ If you want to run the application from source or contribute to the project:
    ```
    The packaged executable will be in the 'dist' folder.
 
+5. To run the unit tests:
+   ```
+   pytest ui/components/tests
+   ```
+
 ## Feedback and Contributions
 
 Feedback and contributions are always welcome to help improve the project! Please open an issue or submit a pull request on GitHub. Enjoy using File Copier!
@@ -63,6 +69,13 @@ Feedback and contributions are always welcome to help improve the project! Pleas
 ## Changelog
 
 For detailed changelog information, please refer to the RELEASE_vX.X.X.md files in the changelog folder.
+
+### v1.2.5
+- Implemented unit tests for all UI components using pytest
+- Added conftest.py to set up QApplication for GUI testing
+- Fixed IntervalSettingsWidget to properly handle invalid interval values
+- Improved test coverage and ensured all components pass their respective unit tests
+- Enhanced project structure for better test organization
 
 ### v1.2.4
 - Updated UI design to align with Studio Merpati brand guidelines
@@ -75,10 +88,3 @@ For detailed changelog information, please refer to the RELEASE_vX.X.X.md files 
 - Fixed issues with timer countdown not starting properly
 - Implemented cooldown mechanism to prevent excessive synchronization
 - Improved overall stability and performance
-
-### v1.2.2
-- Implemented robust "full rebuild" feature for complete synchronization
-- Added countdown timer for next synchronization
-- Improved reliability of file copying at specified intervals
-- Enhanced status messages with more detailed synchronization information
-- Fixed issues with file updates in destination folders
