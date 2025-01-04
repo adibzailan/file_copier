@@ -1,4 +1,4 @@
-# File Copier v2.0.0
+# File Copier v2.1.0
 > Updated: 4 January 2025
 
 ## Features
@@ -66,6 +66,15 @@ If you want to run the application from source or contribute to the project:
 Feedback and contributions are always welcome to help improve the project! Please open an issue or submit a pull request on GitHub. Enjoy using File Copier!
 
 ## Changelog
+
+### v2.1.0
+- Fixed live sync toggle functionality to properly enable/disable file watching
+- Improved file copier management with per-copy-set instances
+- Fixed synchronization issues when manually starting/stopping sync
+- Enhanced error handling and status messages for better feedback
+- Added proper cleanup of file watchers and copiers
+- Improved thread safety in file operations
+- Fixed various bugs related to sync state management
 
 ### v2.0.0
 - Added selective file synchronization feature

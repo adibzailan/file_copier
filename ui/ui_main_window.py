@@ -101,36 +101,81 @@ class MainWindow(QMainWindow):
         self.statusBar().addWidget(footer)
 
     def connect_signals(self):
-        self.copy_set_manager.set_added.connect(self.add_copy_set)
-        self.copy_set_manager.set_removed.connect(self.remove_copy_set)
-        self.copy_set_manager.folders_updated.connect(self.app_logic.update_copy_set)
-        self.copy_set_manager.files_updated.connect(self.update_copy_set_files)
-        self.interval_settings.interval_changed.connect(self.app_logic.set_copy_interval)
-        self.app_logic.status_updated.connect(self.update_status)
+        # Connect copy set manager signals
+        self.copy_set_manager.set_added.connect(self.on_copy_set_added)
+        self.copy_set_manager.set_removed.connect(self.on_copy_set_removed)
+        self.copy_set_manager.folders_updated.connect(self.on_folders_updated)
+        self.copy_set_manager.files_updated.connect(self.on_files_updated)
+        
+        # Connect interval settings signals
+        self.interval_settings.interval_changed.connect(self.on_interval_changed)
+        
+        # Connect sync signals from copy set manager
+        self.copy_set_manager.sync_started.connect(self.on_live_sync_started)  # Live sync
+        self.copy_set_manager.sync_stopped.connect(self.on_live_sync_stopped)  # Live sync
+        self.copy_set_manager.manual_sync_started.connect(self.on_manual_sync_started)  # Manual sync
+        self.copy_set_manager.manual_sync_stopped.connect(self.on_manual_sync_stopped)  # Manual sync
+        
+        # Connect app logic signals
+        self.app_logic.status_updated.connect(self.status_list.add_status)
         self.app_logic.countdown_updated.connect(self.update_countdown)
 
-    def add_copy_set(self):
+    def on_copy_set_added(self):
         print("Adding new copy set")
         new_set_id = len(self.copy_set_manager.copy_sets) + 1
         copy_set_widget = CopySetWidget(new_set_id)
-        new_copy_set = CopySet(new_set_id)  # Create a new CopySet instance
+        new_copy_set = CopySet(new_set_id)
         
         # Connect signals
-        copy_set_widget.removed.connect(self.remove_copy_set)
+        copy_set_widget.removed.connect(self.on_copy_set_removed)
         copy_set_widget.folders_selected.connect(lambda widget, folder_type, path: self.update_copy_set_folders(widget, new_copy_set, folder_type, path))
         copy_set_widget.files_selected.connect(self.app_logic.update_copy_set_files)
-        copy_set_widget.sync_started.connect(lambda widget: self.app_logic.sync_all_copy_sets())
-        copy_set_widget.sync_stopped.connect(lambda widget: self.app_logic.cleanup())
+        copy_set_widget.sync_started.connect(lambda: self.on_live_sync_started(copy_set_widget))
+        copy_set_widget.sync_stopped.connect(lambda: self.on_live_sync_stopped(copy_set_widget))
+        copy_set_widget.manual_sync_started.connect(lambda: self.on_manual_sync_started(copy_set_widget))
+        copy_set_widget.manual_sync_stopped.connect(lambda: self.on_manual_sync_stopped(copy_set_widget))
         
-        self.copy_set_manager.add_copy_set_widget(copy_set_widget)  # Changed to add_copy_set_widget
-        self.app_logic.add_copy_set(new_copy_set)  # Pass the CopySet instance
+        self.copy_set_manager.add_copy_set_widget(copy_set_widget)
+        self.app_logic.add_copy_set(new_copy_set)
+        self.app_logic.set_copy_set_widget(new_set_id, copy_set_widget)  # Associate widget with copy set
 
-    def remove_copy_set(self, copy_set_widget):
+    def on_copy_set_removed(self, copy_set_widget):
         print(f"Removing copy set {copy_set_widget.set_id}")
         copy_set = self.app_logic.copy_sets.get(copy_set_widget.set_id)
         if copy_set:
             self.app_logic.remove_copy_set(copy_set)
         self.copy_set_manager.on_copy_set_removed(copy_set_widget)
+
+    def on_folders_updated(self):
+        print("Folders updated")
+
+    def on_files_updated(self, set_id, selected_files):
+        print(f"Updating files for Copy Set {set_id}")
+        print(f"Selected files: {selected_files}")
+        self.app_logic.update_copy_set_files(set_id, selected_files)
+
+    def on_interval_changed(self):
+        print("Interval changed")
+
+    def on_live_sync_started(self, widget):
+        """Handle live sync start"""
+        print(f"Live sync started for Copy Set {widget.set_id}")
+        self.app_logic.set_live_sync(widget.set_id, True)
+
+    def on_live_sync_stopped(self, widget):
+        """Handle live sync stop"""
+        print(f"Live sync stopped for Copy Set {widget.set_id}")
+        self.app_logic.set_live_sync(widget.set_id, False)
+
+    def on_manual_sync_started(self, widget):
+        """Handle manual sync start"""
+        print(f"Manual sync started for Copy Set {widget.set_id}")
+        self.app_logic.sync_copy_set(widget.set_id)
+
+    def on_manual_sync_stopped(self, widget):
+        """Handle manual sync stop"""
+        print(f"Manual sync stopped for Copy Set {widget.set_id}")
+        self.app_logic.stop_sync(widget.set_id)
 
     def update_copy_set_folders(self, widget, copy_set, folder_type, path):
         if folder_type == "source":
@@ -141,22 +186,14 @@ class MainWindow(QMainWindow):
         # Update the AppLogic with the new folder paths
         self.app_logic.update_copy_set(copy_set, copy_set.source_folder, copy_set.destination_folder)
 
-    def update_copy_set_files(self, set_id, selected_files):
-        print(f"Updating files for Copy Set {set_id}")
-        print(f"Selected files: {selected_files}")
-        self.app_logic.update_copy_set_files(set_id, selected_files)
-
-    def update_status(self, message):
-        if "Starting synchronization" in message:
-            self.status_list.add_status(message, is_important=True)
-        elif "Synchronization completed" in message:
-            self.status_list.add_status(message, is_important=True)
-        else:
-            self.status_list.add_status(message)
-
     def update_countdown(self, seconds_remaining):
-        minutes, seconds = divmod(seconds_remaining, 60)
-        self.countdown_label.setText(f"Next sync in: {minutes:02d}:{seconds:02d}")
+        try:
+            # Convert seconds_remaining to int if it's a string
+            seconds_remaining = int(float(str(seconds_remaining)))
+            minutes, seconds = divmod(seconds_remaining, 60)
+            self.countdown_label.setText(f"Next sync in: {minutes:02d}:{seconds:02d}")
+        except (ValueError, TypeError):
+            self.countdown_label.setText("Next sync in: --:--")
 
     def closeEvent(self, event: QCloseEvent) -> None:
         self.app_logic.cleanup()

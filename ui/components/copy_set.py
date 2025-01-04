@@ -10,13 +10,16 @@ class CopySetWidget(QWidget):
     removed = pyqtSignal(object)
     folders_selected = pyqtSignal(object, str, str)  # widget, folder_type, path
     files_selected = pyqtSignal(int, list)  # set_id, files
-    sync_started = pyqtSignal(object)
-    sync_stopped = pyqtSignal(object)
+    sync_started = pyqtSignal(object)  # For live sync
+    sync_stopped = pyqtSignal(object)  # For live sync
+    manual_sync_started = pyqtSignal(object)  # For manual sync
+    manual_sync_stopped = pyqtSignal(object)  # For manual sync
 
     def __init__(self, set_id):
         super().__init__()
         self.set_id = set_id
         self.selected_files = []
+        self.is_live_sync = False  # Track live sync state
         self.setup_ui()
         print(f"CopySetWidget {set_id} initialized")
 
@@ -45,6 +48,18 @@ class CopySetWidget(QWidget):
         layout.addWidget(self.source_folder_widget)
         layout.addWidget(self.dest_folder_widget)
 
+        # Live sync toggle
+        sync_options_layout = QHBoxLayout()
+        self.live_sync_button = QPushButton("Live Sync: Off")
+        self.live_sync_button.setCheckable(True)
+        self.live_sync_button.setChecked(False)  # Ensure it starts unchecked
+        self.live_sync_button.setFont(QFont("Cerebri Sans", 12))
+        self.live_sync_button.clicked.connect(self.toggle_live_sync)
+        self.live_sync_button.setStyleSheet(Theme.BUTTON_STYLE)
+        sync_options_layout.addWidget(self.live_sync_button)
+        sync_options_layout.addStretch(1)
+        layout.addLayout(sync_options_layout)
+
         # File selector
         self.file_selector = FileSelector()
         layout.addWidget(self.file_selector)
@@ -59,8 +74,8 @@ class CopySetWidget(QWidget):
         self.dest_folder_widget.folder_selected.connect(lambda type, path: self.on_folder_selected("destination", path))
         self.source_folder_widget.folder_selected.connect(self.file_selector.update_folder)
         self.file_selector.files_selected.connect(self.on_files_selected)
-        self.sync_control.sync_started.connect(lambda: self.sync_started.emit(self))
-        self.sync_control.sync_stopped.connect(lambda: self.sync_stopped.emit(self))
+        self.sync_control.sync_started.connect(lambda: self.manual_sync_started.emit(self))  # Manual sync
+        self.sync_control.sync_stopped.connect(lambda: self.manual_sync_stopped.emit(self))  # Manual sync
 
         self.setStyleSheet(Theme.COPY_SET_STYLE)
 
@@ -75,11 +90,43 @@ class CopySetWidget(QWidget):
         self.selected_files = files
         self.files_selected.emit(self.set_id, files)  # Emit set_id and files directly
 
+    def toggle_live_sync(self):
+        """Toggle live sync state and emit appropriate signals"""
+        self.is_live_sync = self.live_sync_button.isChecked()
+        self.live_sync_button.setText("Live Sync: On" if self.is_live_sync else "Live Sync: Off")
+        print(f"Live sync button toggled to: {'On' if self.is_live_sync else 'Off'} for Copy Set {self.set_id}")
+        
+        # Block signals to prevent recursion
+        self.live_sync_button.blockSignals(True)
+        try:
+            if self.is_live_sync:
+                self.sync_started.emit(self)
+            else:
+                self.sync_stopped.emit(self)
+        finally:
+            self.live_sync_button.blockSignals(False)
+
+    def set_live_sync_state(self, enabled):
+        """Update the live sync button state without triggering signals"""
+        if self.is_live_sync != enabled:
+            self.live_sync_button.blockSignals(True)
+            try:
+                self.is_live_sync = enabled
+                self.live_sync_button.setChecked(enabled)
+                self.live_sync_button.setText("Live Sync: On" if enabled else "Live Sync: Off")
+            finally:
+                self.live_sync_button.blockSignals(False)
+            print(f"Live sync state set to: {'On' if enabled else 'Off'} for Copy Set {self.set_id}")
+
 class CopySetManager(QWidget):
     set_added = pyqtSignal()  # Changed to just emit signal
     set_removed = pyqtSignal(object)
     folders_updated = pyqtSignal(object, str, str)
-    files_updated = pyqtSignal(int, list)  # set_id, files
+    files_updated = pyqtSignal(int, list)
+    sync_started = pyqtSignal(object)  # Added for live sync
+    sync_stopped = pyqtSignal(object)  # Added for live sync
+    manual_sync_started = pyqtSignal(object)  # For manual sync
+    manual_sync_stopped = pyqtSignal(object)  # For manual sync
 
     def __init__(self):
         super().__init__()
@@ -131,5 +178,14 @@ class CopySetManager(QWidget):
                 row += 1
 
     def add_copy_set_widget(self, widget):
+        # Connect the widget's signals
+        widget.removed.connect(self.on_copy_set_removed)
+        widget.folders_selected.connect(lambda w, t, p: self.folders_updated.emit(w, t, p))
+        widget.files_selected.connect(lambda set_id, files: self.files_updated.emit(set_id, files))
+        widget.sync_started.connect(lambda w: self.sync_started.emit(w))  # Forward sync signals
+        widget.sync_stopped.connect(lambda w: self.sync_stopped.emit(w))  # Forward sync signals
+        widget.manual_sync_started.connect(lambda w: self.manual_sync_started.emit(w))  # Forward manual sync signals
+        widget.manual_sync_stopped.connect(lambda w: self.manual_sync_stopped.emit(w))  # Forward manual sync signals
+        
         self.copy_sets.append(widget)
         self.update_layout()

@@ -11,23 +11,30 @@ class FileWatcher(QThread):
         super().__init__()
         self.path = path
         self.observer = None
+        self._stop_requested = False
 
     def run(self):
         event_handler = FileChangeHandler(self.file_changed)
         self.observer = Observer()
         self.observer.schedule(event_handler, self.path, recursive=True)
         self.observer.start()
-        try:
-            while True:
-                time.sleep(1)
-        except:
-            self.observer.stop()
-        self.observer.join()
-
-    def stop(self):
+        print(f"File watcher started for path: {self.path}")
+        
+        while not self._stop_requested:
+            time.sleep(1)
+            
         if self.observer:
+            print("Stopping file watcher...")
             self.observer.stop()
             self.observer.join()
+            self.observer = None
+            print("File watcher stopped")
+
+    def stop(self):
+        """Safely stop the file watcher thread"""
+        print("Requesting file watcher to stop...")
+        self._stop_requested = True
+        self.wait()  # Wait for thread to finish
 
 class FileChangeHandler(FileSystemEventHandler):
     def __init__(self, signal):

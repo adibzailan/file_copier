@@ -104,6 +104,25 @@ class Theme:
         }}
     """
 
+    BUTTON_STYLE = f"""
+        QPushButton {{
+            background-color: {SURFACE};
+            color: {TEXT};
+            border: 1px solid {BORDER};
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-family: 'Cerebri Sans';
+        }}
+        QPushButton:hover {{
+            background-color: {PRIMARY};
+            border: 1px solid {PRIMARY};
+        }}
+        QPushButton:checked {{
+            background-color: {SUCCESS};
+            border: 1px solid {SUCCESS};
+        }}
+    """
+
     ADD_BUTTON_STYLE = f"""
         QPushButton {{
             background-color: {PRIMARY};
