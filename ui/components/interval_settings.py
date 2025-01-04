@@ -1,6 +1,7 @@
 from PyQt6.QtWidgets import QWidget, QHBoxLayout, QLabel, QSlider, QLineEdit
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont, QIntValidator
+from ..theme import Theme
 
 class IntervalSettingsWidget(QWidget):
     interval_changed = pyqtSignal(int)
@@ -15,6 +16,7 @@ class IntervalSettingsWidget(QWidget):
 
         interval_label = QLabel("Copy Interval (minutes):")
         interval_label.setFont(QFont("Cerebri Sans", 16, QFont.Weight.Bold))
+        interval_label.setStyleSheet(f"color: {Theme.TEXT}; background-color: transparent;")
 
         self.interval_slider = QSlider(Qt.Orientation.Horizontal)
         self.interval_slider.setMinimum(1)
@@ -36,34 +38,45 @@ class IntervalSettingsWidget(QWidget):
         layout.addWidget(self.interval_slider)
         layout.addWidget(self.interval_input)
 
-        self.setStyleSheet("""
-            QLabel {
-                color: #333333;
+        self.setStyleSheet(f"""
+            QLabel {{ 
+                color: {Theme.TEXT};
                 font-size: 16px;
                 font-weight: bold;
-            }
-            QSlider::groove:horizontal {
-                border: 1px solid #E0E0E0;
+                background-color: transparent;
+            }}
+            QSlider::groove:horizontal {{ 
+                border: 1px solid {Theme.BORDER};
                 height: 8px;
-                background: #FFFFFF;
+                background: {Theme.SURFACE};
                 margin: 2px 0;
                 border-radius: 4px;
-            }
-            QSlider::handle:horizontal {
-                background: #FF6F61;
-                border: 1px solid #FF6F61;
+            }}
+            QSlider::handle:horizontal {{ 
+                background: {Theme.PRIMARY};
+                border: none;
                 width: 18px;
-                margin: -2px 0;
+                margin: -6px 0;
                 border-radius: 9px;
-            }
-            QLineEdit {
-                background-color: #FFFFFF;
-                color: #333333;
-                border: 2px solid #E0E0E0;
-                padding: 4px 8px;
-                border-radius: 8px;
-                font-size: 16px;
-            }
+            }}
+            QSlider::sub-page:horizontal {{ 
+                background: {Theme.PRIMARY};
+                border-radius: 4px;
+            }}
+            QSlider::add-page:horizontal {{ 
+                background: {Theme.SURFACE};
+                border-radius: 4px;
+            }}
+            QLineEdit {{ 
+                color: {Theme.TEXT};
+                background-color: {Theme.SURFACE};
+                border: 1px solid {Theme.BORDER};
+                border-radius: 4px;
+                padding: 4px;
+            }}
+            QLineEdit:focus {{ 
+                border: 1px solid {Theme.PRIMARY};
+            }}
         """)
 
     def update_interval_input(self, value):
@@ -76,21 +89,6 @@ class IntervalSettingsWidget(QWidget):
             if 1 <= value <= 60:
                 self.interval_slider.setValue(value)
                 self.interval_changed.emit(value)
-            else:
-                # If the value is out of range, set it to the nearest valid value
-                value = max(1, min(60, value))
-                self.interval_slider.setValue(value)
-                self.interval_input.setText(str(value))
-                self.interval_changed.emit(value)
-
-    def set_interval(self, value):
-        value = max(1, min(60, value))
-        self.interval_slider.setValue(value)
-        self.interval_input.setText(str(value))
 
     def get_interval(self):
-        try:
-            value = int(self.interval_input.text())
-            return max(1, min(60, value))
-        except ValueError:
-            return 30  # Default value if conversion fails
+        return self.interval_slider.value()

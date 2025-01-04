@@ -12,32 +12,30 @@ class CopySet:
         self.set_id = set_id
         self.source_folder = source_folder
         self.destination_folder = destination_folder
+        self.selected_files = set()  # Track selected files
         self.file_watcher = None
         self.file_copier = None
+        self.copy_interval = 30  # Default copy interval in minutes
+        self.last_update = time.time()  # Last update timestamp
 
 class AppLogic(QObject):
     status_updated = pyqtSignal(str)
-    countdown_updated = pyqtSignal(int)
+    countdown_updated = pyqtSignal(str)
 
     def __init__(self):
         super().__init__()
-        self.config = {
-            'copy_interval': 30,
-            'copy_sets': []
-        }
         self.copy_sets = {}
-        self.countdown_timer = QTimer(self)
-        self.countdown_timer.timeout.connect(self.update_countdown)
-        self.countdown_remaining = 0
-        self.last_sync_time = 0
-        self.sync_cooldown = 5  # 5 seconds cooldown between syncs
+        self.file_copier = None
+        print("AppLogic initialized")
 
     def load_config(self):
         try:
             with open('config.json', 'r') as config_file:
-                self.config = json.load(config_file)
-                for set_data in self.config['copy_sets']:
+                config_data = json.load(config_file)
+                for set_data in config_data['copy_sets']:
                     copy_set = CopySet(set_data['set_id'], set_data['source_folder'], set_data['destination_folder'])
+                    if 'selected_files' in set_data:  # Load selected files from config
+                        copy_set.selected_files = set(set_data['selected_files'])
                     self.copy_sets[copy_set.set_id] = copy_set
                     self.start_file_watcher(copy_set)
                     self.start_file_copier(copy_set)
@@ -46,43 +44,108 @@ class AppLogic(QObject):
             pass
 
     def save_config(self):
-        self.config['copy_sets'] = [
-            {'set_id': cs.set_id, 'source_folder': cs.source_folder, 'destination_folder': cs.destination_folder}
-            for cs in self.copy_sets.values()
-        ]
+        config_data = {
+            'copy_sets': [
+                {
+                    'set_id': cs.set_id,
+                    'source_folder': cs.source_folder,
+                    'destination_folder': cs.destination_folder,
+                    'selected_files': list(cs.selected_files)  # Save selected files to config
+                }
+                for cs in self.copy_sets.values()
+            ]
+        }
         with open('config.json', 'w') as config_file:
-            json.dump(self.config, config_file)
+            json.dump(config_data, config_file, indent=4)
 
-    def add_copy_set(self, copy_set_widget):
-        copy_set = CopySet(copy_set_widget.set_id)
+    def add_copy_set(self, copy_set):
+        print(f"Adding copy set {copy_set.set_id}")
         self.copy_sets[copy_set.set_id] = copy_set
-        self.save_config()
+        
+        # Initialize file copier if not already done
+        if not self.file_copier:
+            config = {
+                'source_folder': copy_set.source_folder,
+                'destination_folder': copy_set.destination_folder,
+                'selected_files': list(copy_set.selected_files),
+                'copy_interval': 30,
+                'last_update': time.time()
+            }
+            self.file_copier = FileCopier(config)
+            self.file_copier.copy_completed.connect(self.on_copy_completed)
+            self.file_copier.sync_started.connect(self.on_sync_started)
+            self.file_copier.start()
+            print("File copier initialized and started")
+        
+        self.status_updated.emit(f"Copy Set {copy_set.set_id} added")
 
-    def remove_copy_set(self, copy_set_widget):
-        copy_set = self.copy_sets.pop(copy_set_widget.set_id, None)
-        if copy_set:
-            if copy_set.file_watcher:
-                copy_set.file_watcher.stop()
-            if copy_set.file_copier:
-                copy_set.file_copier.stop()
-        self.save_config()
+    def update_copy_set(self, copy_set, source, destination):
+        print(f"Updating folders for Copy Set {copy_set.set_id}")
+        print(f"Source: {source}")
+        print(f"Destination: {destination}")
+        
+        if copy_set.set_id in self.copy_sets:
+            copy_set = self.copy_sets[copy_set.set_id]
+            copy_set.source_folder = source
+            copy_set.destination_folder = destination
+            
+            # Update file copier config
+            if self.file_copier:
+                config = {
+                    'source_folder': source,
+                    'destination_folder': destination,
+                    'selected_files': list(copy_set.selected_files),
+                    'copy_interval': self.file_copier.config.get('copy_interval', 30),
+                    'last_update': time.time()
+                }
+                self.file_copier.config.update(config)
+                print(f"Updated file copier config: {self.file_copier.config}")
+            
+            self.status_updated.emit(f"Updated folders for Copy Set {copy_set.set_id}")
 
-    def update_copy_set(self, copy_set_widget, source_folder, destination_folder):
-        copy_set = self.copy_sets.get(copy_set_widget.set_id)
-        if copy_set:
-            copy_set.source_folder = source_folder
-            copy_set.destination_folder = destination_folder
-            self.start_file_watcher(copy_set)
-            self.start_file_copier(copy_set)
-        self.save_config()
+    def update_copy_set_files(self, set_id, selected_files):
+        print(f"AppLogic: Updating files for Copy Set {set_id}")
+        print(f"Selected files: {selected_files}")
+        
+        if set_id in self.copy_sets:
+            copy_set = self.copy_sets[set_id]
+            copy_set.selected_files = set(selected_files)  # Update the CopySet object
+            
+            # Update file copier config
+            if self.file_copier:
+                config = {
+                    'source_folder': copy_set.source_folder,
+                    'destination_folder': copy_set.destination_folder,
+                    'selected_files': selected_files,
+                    'copy_interval': self.file_copier.config.get('copy_interval', 30),
+                    'last_update': time.time()
+                }
+                self.file_copier.config.update(config)
+                print(f"Updated file copier config with files: {selected_files}")
+                print(f"Current file copier config: {self.file_copier.config}")
+            
+            self.status_updated.emit(f"Updated selected files for Copy Set {set_id}")
 
-    def set_copy_interval(self, interval):
-        self.config['copy_interval'] = interval
+    def remove_copy_set(self, copy_set):
+        if copy_set.set_id in self.copy_sets:
+            del self.copy_sets[copy_set.set_id]
+            self.status_updated.emit(f"Copy Set {copy_set.set_id} removed")
+
+    def set_copy_interval(self, minutes):
         for copy_set in self.copy_sets.values():
-            if copy_set.file_copier:
-                copy_set.file_copier.config['copy_interval'] = interval
-        self.save_config()
-        self.restart_countdown()
+            copy_set.copy_interval = minutes
+            copy_set.last_update = time.time()
+            
+        if self.file_copier:
+            self.file_copier.config['copy_interval'] = minutes
+        
+        self.status_updated.emit(f"Copy interval set to {minutes} minutes")
+
+    def on_copy_completed(self, message):
+        self.status_updated.emit(message)
+
+    def on_sync_started(self):
+        self.status_updated.emit("Starting synchronization...")
 
     def start_file_watcher(self, copy_set):
         if copy_set.file_watcher:
@@ -102,13 +165,14 @@ class AppLogic(QObject):
             config = {
                 'source_folder': copy_set.source_folder,
                 'destination_folder': copy_set.destination_folder,
-                'copy_interval': self.config['copy_interval']
+                'copy_interval': copy_set.copy_interval,
+                'selected_files': list(copy_set.selected_files) if copy_set.selected_files else None
             }
             copy_set.file_copier = FileCopier(config)
             copy_set.file_copier.copy_completed.connect(lambda msg: self.on_copy_completed(copy_set, msg))
             copy_set.file_copier.sync_started.connect(lambda: self.on_sync_started(copy_set))
-            copy_set.file_copier.resume()
-            self.status_updated.emit(f"File copier started for Copy Set {copy_set.set_id}. Initial full synchronization will begin shortly.")
+            # Don't auto-resume, wait for manual start
+            self.status_updated.emit(f"File copier configured for Copy Set {copy_set.set_id}. Click 'Start Sync' to begin synchronization.")
         else:
             self.status_updated.emit(f"Both source and destination folders must be specified for Copy Set {copy_set.set_id} to start synchronization.")
 
@@ -135,37 +199,36 @@ class AppLogic(QObject):
 
         self.status_updated.emit(f"Copy Set {copy_set.set_id}: {result}")
 
-    def on_copy_completed(self, copy_set, msg):
-        self.status_updated.emit(f"Copy Set {copy_set.set_id}: {msg}")
-
-    def on_sync_started(self, copy_set):
-        self.status_updated.emit(f"Copy Set {copy_set.set_id}: Starting synchronization...")
-
     def restart_countdown(self):
-        self.countdown_remaining = self.config['copy_interval'] * 60
+        self.countdown_remaining = self.copy_sets[list(self.copy_sets.keys())[0]].copy_interval * 60
+        self.countdown_timer = QTimer(self)
+        self.countdown_timer.timeout.connect(self.update_countdown)
         self.countdown_timer.start(1000)  # Update every second
         self.update_countdown()
 
     def update_countdown(self):
-        self.countdown_updated.emit(self.countdown_remaining)
+        self.countdown_updated.emit(str(self.countdown_remaining))
         self.countdown_remaining -= 1
         if self.countdown_remaining < 0:
             self.sync_all_copy_sets()
 
     def sync_all_copy_sets(self):
+        # Check if we have valid source and destination folders
+        for copy_set in self.copy_sets.values():
+            if not copy_set.source_folder or not copy_set.destination_folder:
+                self.status_updated.emit("Error: Both source and destination folders must be set before syncing.")
+                return
+
         current_time = time.time()
-        if current_time - self.last_sync_time < self.sync_cooldown:
+        if self.copy_sets and current_time - list(self.copy_sets.values())[0].last_update < 5:
             self.status_updated.emit("Sync cooldown in effect. Skipping this sync cycle.")
             self.restart_countdown()
             return
 
         self.status_updated.emit("Starting synchronization for all copy sets...")
-        for copy_set in self.copy_sets.values():
-            if copy_set.file_copier:
-                copy_set.file_copier.full_sync()
-        self.status_updated.emit("Synchronization completed for all copy sets.")
-        self.last_sync_time = current_time
-        self.restart_countdown()
+        if self.file_copier:
+            self.file_copier.resume()  # This will trigger an immediate sync
+        self.status_updated.emit("Synchronization started.")
 
     def cleanup(self):
         for copy_set in self.copy_sets.values():

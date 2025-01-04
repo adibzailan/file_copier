@@ -40,3 +40,16 @@ Thumbs.db
 # Build outputs
 /build/
 /dist/
+
+# PyInstaller specific
+*.manifest
+*.spec
+*.pyo
+*.pyd
+*.so
+*.exe
+*.dll
+*.dylib
+
+# Local development
+config.json

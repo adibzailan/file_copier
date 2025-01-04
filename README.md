@@ -1,20 +1,18 @@
-# File Copier v1.2.5
+# File Copier v2.0.0
+> Updated: 4 January 2025
 
 ## Features
 
 - Support for multiple copy sets (source-destination pairs)
+- Selective file synchronization - choose specific files to sync within each copy set
 - Real-time, bidirectional synchronization for each copy set
-- User-friendly GUI with improved visibility and contrast
+- Modern dark theme UI with improved visibility and contrast
 - Initial full copy when folders are first selected for each copy set
 - Robust "full rebuild" feature ensuring complete synchronization at specified intervals
 - Real-time monitoring and handling of file changes (create, modify, delete, rename) for each copy set
 - Customizable global synchronization interval
 - Add and remove copy sets dynamically
 - Detailed status messages for better tracking of synchronization process
-- Countdown timer displaying time until next synchronization
-- Cooldown mechanism to prevent excessive synchronization
-- Built with PyQt6 and watchdog for robust performance
-- Comprehensive unit tests for all UI components
 
 ## Installation
 
@@ -28,7 +26,8 @@
 3. For each copy set:
    - Click "SELECT" next to "Source:" to choose the source folder.
    - Click "SELECT" next to "Destination:" to choose the destination folder.
-4. Set the global copy interval using the slider or input box at the bottom.
+   - Select specific files you want to sync from the source folder.
+4. Click "Start Sync" to begin synchronization.
 5. Monitor the synchronization status and countdown timer for all copy sets in the status area.
 6. Add or remove copy sets as needed using the "Add New Copy Set" and "Remove" buttons.
 
@@ -53,7 +52,7 @@ If you want to run the application from source or contribute to the project:
 
 4. To package the application:
    ```
-   python pyinstaller_script.py
+   python build_executable.py
    ```
    The packaged executable will be in the 'dist' folder.
 
@@ -68,7 +67,16 @@ Feedback and contributions are always welcome to help improve the project! Pleas
 
 ## Changelog
 
-For detailed changelog information, please refer to the RELEASE_vX.X.X.md files in the changelog folder.
+### v2.0.0
+- Added selective file synchronization feature
+- Implemented new dark theme UI for better visibility
+- Improved file selection interface with checkboxes
+- Enhanced sync control with Start/Stop functionality
+- Added validation for source and destination folders
+- Improved error handling and user feedback
+- Fixed various bugs related to file synchronization
+- Updated documentation and usage instructions
+- Simplified version display in UI
 
 ### v1.2.5
 - Implemented unit tests for all UI components using pytest

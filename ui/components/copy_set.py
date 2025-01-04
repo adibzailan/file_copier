@@ -2,15 +2,23 @@ from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLab
 from PyQt6.QtCore import pyqtSignal, Qt
 from PyQt6.QtGui import QFont
 from .folder_selection import FolderSelectionWidget
+from .file_selector import FileSelector
+from .sync_control import SyncControl
+from ..theme import Theme
 
 class CopySetWidget(QWidget):
     removed = pyqtSignal(object)
-    folders_selected = pyqtSignal(object, str, str)
+    folders_selected = pyqtSignal(object, str, str)  # widget, folder_type, path
+    files_selected = pyqtSignal(int, list)  # set_id, files
+    sync_started = pyqtSignal(object)
+    sync_stopped = pyqtSignal(object)
 
     def __init__(self, set_id):
         super().__init__()
         self.set_id = set_id
+        self.selected_files = []
         self.setup_ui()
+        print(f"CopySetWidget {set_id} initialized")
 
     def setup_ui(self):
         layout = QVBoxLayout()
@@ -24,62 +32,54 @@ class CopySetWidget(QWidget):
         header_label.setFont(QFont("Cerebri Sans", 16, QFont.Weight.Bold))
         remove_button = QPushButton("Remove")
         remove_button.setFont(QFont("Cerebri Sans", 12, QFont.Weight.Bold))
-        remove_button.clicked.connect(self.remove_set)
+        remove_button.clicked.connect(lambda: self.removed.emit(self))
+        
         header_layout.addWidget(header_label)
         header_layout.addStretch(1)
         header_layout.addWidget(remove_button)
         layout.addLayout(header_layout)
 
         # Folder selections
-        self.source_folder = FolderSelectionWidget("Source:")
-        self.dest_folder = FolderSelectionWidget("Destination:")
-        layout.addWidget(self.source_folder)
-        layout.addWidget(self.dest_folder)
+        self.source_folder_widget = FolderSelectionWidget("Source:")
+        self.dest_folder_widget = FolderSelectionWidget("Destination:")
+        layout.addWidget(self.source_folder_widget)
+        layout.addWidget(self.dest_folder_widget)
+
+        # File selector
+        self.file_selector = FileSelector()
+        layout.addWidget(self.file_selector)
+
+        # Sync Control
+        self.sync_control = SyncControl()
+        layout.addWidget(self.sync_control)
 
         # Connect signals
-        self.source_folder.folder_selected.connect(self.update_folders)
-        self.dest_folder.folder_selected.connect(self.update_folders)
+        print("Connecting signals in CopySetWidget")
+        self.source_folder_widget.folder_selected.connect(lambda type, path: self.on_folder_selected("source", path))
+        self.dest_folder_widget.folder_selected.connect(lambda type, path: self.on_folder_selected("destination", path))
+        self.source_folder_widget.folder_selected.connect(self.file_selector.update_folder)
+        self.file_selector.files_selected.connect(self.on_files_selected)
+        self.sync_control.sync_started.connect(lambda: self.sync_started.emit(self))
+        self.sync_control.sync_stopped.connect(lambda: self.sync_stopped.emit(self))
 
-        self.setStyleSheet("""
-            CopySetWidget {
-                background-color: #FFFFFF;
-                border: 1px solid #E0E0E0;
-                border-radius: 4px;
-            }
-            QLabel {
-                color: #333333;
-                font-family: 'Cerebri Sans';
-                font-size: 16px;
-                font-weight: bold;
-            }
-            QPushButton {
-                background-color: #FF6F61;
-                color: #FFFFFF;
-                border: none;
-                padding: 4px 8px;
-                font-family: 'Cerebri Sans';
-                font-weight: bold;
-                border-radius: 4px;
-                font-size: 12px;
-            }
-            QPushButton:hover {
-                background-color: #FF8D82;
-            }
-        """)
+        self.setStyleSheet(Theme.COPY_SET_STYLE)
 
-    def remove_set(self):
-        self.removed.emit(self)
+    def on_folder_selected(self, folder_type, path):
+        print(f"CopySet {self.set_id} folder selected: {folder_type} = {path}")
+        self.folders_selected.emit(self, folder_type, path)
+        if folder_type == "source":
+            self.file_selector.update_folder("source", path)
 
-    def update_folders(self):
-        source = self.source_folder.get_path()
-        destination = self.dest_folder.get_path()
-        if source and destination:
-            self.folders_selected.emit(self, source, destination)
+    def on_files_selected(self, files):
+        print(f"CopySet {self.set_id} files selected: {files}")
+        self.selected_files = files
+        self.files_selected.emit(self.set_id, files)  # Emit set_id and files directly
 
 class CopySetManager(QWidget):
-    set_added = pyqtSignal(object)
+    set_added = pyqtSignal()  # Changed to just emit signal
     set_removed = pyqtSignal(object)
     folders_updated = pyqtSignal(object, str, str)
+    files_updated = pyqtSignal(int, list)  # set_id, files
 
     def __init__(self):
         super().__init__()
@@ -100,51 +100,36 @@ class CopySetManager(QWidget):
         add_button = QPushButton("Add New Copy Set")
         add_button.setFont(QFont("Cerebri Sans", 14, QFont.Weight.Bold))
         add_button.clicked.connect(self.add_copy_set)
-        main_layout.addWidget(add_button, alignment=Qt.AlignmentFlag.AlignCenter)
-
-        self.setStyleSheet("""
-            CopySetManager {
-                background-color: #F5F5F5;
-            }
-            QPushButton {
-                background-color: #FF6F61;
-                color: #FFFFFF;
-                border: none;
-                padding: 8px 16px;
-                font-family: 'Cerebri Sans';
-                font-weight: bold;
-                border-radius: 4px;
-                font-size: 14px;
-            }
-            QPushButton:hover {
-                background-color: #FF8D82;
-            }
-        """)
+        add_button.setStyleSheet(Theme.ADD_BUTTON_STYLE)
+        main_layout.addWidget(add_button)
 
     def add_copy_set(self):
-        new_set = CopySetWidget(len(self.copy_sets) + 1)
-        new_set.removed.connect(self.remove_copy_set)
-        new_set.folders_selected.connect(self.update_folders)
-        self.copy_sets.append(new_set)
-        
-        row = (len(self.copy_sets) - 1) // 2
-        col = (len(self.copy_sets) - 1) % 2
-        self.grid_layout.addWidget(new_set, row, col)
-        
-        self.set_added.emit(new_set)
+        self.set_added.emit()  # Just emit signal, let MainWindow handle creation
 
-    def remove_copy_set(self, copy_set):
-        self.copy_sets.remove(copy_set)
-        self.grid_layout.removeWidget(copy_set)
-        copy_set.deleteLater()
-        self.set_removed.emit(copy_set)
-        self.reorganize_grid()
+    def on_copy_set_removed(self, copy_set):
+        if copy_set in self.copy_sets:
+            self.copy_sets.remove(copy_set)
+            copy_set.setParent(None)
+            self.update_layout()
+            self.set_removed.emit(copy_set)
 
-    def reorganize_grid(self):
-        for i, copy_set in enumerate(self.copy_sets):
-            row = i // 2
-            col = i % 2
+    def update_layout(self):
+        # Clear existing widgets from grid
+        while self.grid_layout.count():
+            item = self.grid_layout.takeAt(0)
+            if item.widget():
+                item.widget().setParent(None)
+
+        # Re-add widgets in grid layout
+        row = 0
+        col = 0
+        for copy_set in self.copy_sets:
             self.grid_layout.addWidget(copy_set, row, col)
+            col += 1
+            if col >= 2:  # 2 columns
+                col = 0
+                row += 1
 
-    def update_folders(self, copy_set, source, destination):
-        self.folders_updated.emit(copy_set, source, destination)
+    def add_copy_set_widget(self, widget):
+        self.copy_sets.append(widget)
+        self.update_layout()

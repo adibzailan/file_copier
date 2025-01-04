@@ -1,11 +1,13 @@
 from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QScrollArea, QApplication, QSplitter, QPushButton
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont, QFontDatabase, QCloseEvent
-from .components.copy_set import CopySetManager
+from .components.copy_set import CopySetManager, CopySetWidget
 from .components.interval_settings import IntervalSettingsWidget
 from .components.status_list import StatusListWidget
-from .components.footer import FooterWidget  # Ensure this import is correct
-from core.app_logic import AppLogic
+from .components.footer import FooterWidget
+from .theme import Theme
+from core.app_logic import AppLogic, CopySet
+import time
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -17,6 +19,7 @@ class MainWindow(QMainWindow):
         self.setup_ui()
         self.connect_signals()
         self.app_logic.load_config()
+        self.setStyleSheet(Theme.WINDOW_STYLE)
 
     def load_fonts(self):
         font_dir = "resources/fonts/"
@@ -49,104 +52,99 @@ class MainWindow(QMainWindow):
         copy_set_scroll = QScrollArea()
         copy_set_scroll.setWidgetResizable(True)
         copy_set_scroll.setWidget(self.copy_set_manager)
+        copy_set_scroll.setStyleSheet("""
+            QScrollArea {
+                border: none;
+                background-color: transparent;
+            }
+            QScrollArea > QWidget > QWidget {
+                background-color: transparent;
+            }
+        """)
         left_layout.addWidget(copy_set_scroll)
 
-        # Right panel (Settings and Status)
+        # Right panel
         right_panel = QWidget()
-        right_panel.setObjectName("rightPanel")
         right_layout = QVBoxLayout()
         right_layout.setContentsMargins(16, 16, 16, 16)
         right_layout.setSpacing(16)
         right_panel.setLayout(right_layout)
 
-        # Copy interval settings
+        # Interval Settings
         self.interval_settings = IntervalSettingsWidget()
         right_layout.addWidget(self.interval_settings)
 
         # Countdown timer
         self.countdown_label = QLabel("Next sync in: --:--")
-        self.countdown_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.countdown_label.setFont(QFont("Hanken Grotesk", 16, QFont.Weight.Bold))
+        self.countdown_label.setStyleSheet(f"color: {Theme.TEXT}; background-color: transparent;")
+        self.countdown_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         right_layout.addWidget(self.countdown_label)
 
-        # Status messages
+        # Status List
         self.status_list = StatusListWidget()
+        self.status_list.setStyleSheet(Theme.STATUS_STYLE)
         right_layout.addWidget(self.status_list)
+        right_layout.addStretch()
 
-        # Footer
-        self.footer = FooterWidget(version="1.2.4")
-        right_layout.addWidget(self.footer)
-
-        # Add left and right panels to main layout
+        # Add panels to main layout
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.addWidget(left_panel)
         splitter.addWidget(right_panel)
-        splitter.setStretchFactor(0, 2)  # Left panel takes up 2/3 of the space
-        splitter.setStretchFactor(1, 1)  # Right panel takes up 1/3 of the space
+        splitter.setStretchFactor(0, 2)
+        splitter.setStretchFactor(1, 1)
         main_layout.addWidget(splitter)
 
-        self.apply_styling()
+        # Footer
+        footer = FooterWidget(version="v2.0.0")
+        footer.setStyleSheet(Theme.FOOTER_STYLE)
+        self.statusBar().addWidget(footer)
 
     def connect_signals(self):
-        self.copy_set_manager.set_added.connect(self.app_logic.add_copy_set)
-        self.copy_set_manager.set_removed.connect(self.app_logic.remove_copy_set)
+        self.copy_set_manager.set_added.connect(self.add_copy_set)
+        self.copy_set_manager.set_removed.connect(self.remove_copy_set)
         self.copy_set_manager.folders_updated.connect(self.app_logic.update_copy_set)
+        self.copy_set_manager.files_updated.connect(self.update_copy_set_files)
         self.interval_settings.interval_changed.connect(self.app_logic.set_copy_interval)
         self.app_logic.status_updated.connect(self.update_status)
         self.app_logic.countdown_updated.connect(self.update_countdown)
 
-    def apply_styling(self):
-        self.setStyleSheet("""
-            QMainWindow {
-                background-color: #F5F5F5;
-                color: #333333;
-            }
-            QLabel {
-                color: #333333;
-                font-family: 'Hanken Grotesk';
-                font-size: 14px;
-            }
-            QPushButton {
-                background-color: #4ECDC4;
-                color: #F5F5F5;
-                border: none;
-                padding: 8px 16px;
-                font-family: 'Cerebri Sans';
-                font-weight: bold;
-                border-radius: 4px;
-                font-size: 14px;
-            }
-            QPushButton:hover {
-                background-color: #45B7AE;
-            }
-            QScrollArea {
-                border: none;
-                background-color: transparent;
-            }
-            QScrollBar:vertical {
-                border: none;
-                background: #F5F5F5;
-                width: 10px;
-                margin: 0px 0px 0px 0px;
-            }
-            QScrollBar::handle:vertical {
-                background: #4ECDC4;
-                min-height: 20px;
-                border-radius: 5px;
-            }
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
-                height: 0px;
-            }
-            QSplitter::handle {
-                background-color: #E0E0E0;
-            }
-            QWidget {
-                padding: 4px;
-            }
-            #rightPanel {
-                background-color: #F5F5F5;
-            }
-        """)
+    def add_copy_set(self):
+        print("Adding new copy set")
+        new_set_id = len(self.copy_set_manager.copy_sets) + 1
+        copy_set_widget = CopySetWidget(new_set_id)
+        new_copy_set = CopySet(new_set_id)  # Create a new CopySet instance
+        
+        # Connect signals
+        copy_set_widget.removed.connect(self.remove_copy_set)
+        copy_set_widget.folders_selected.connect(lambda widget, folder_type, path: self.update_copy_set_folders(widget, new_copy_set, folder_type, path))
+        copy_set_widget.files_selected.connect(self.app_logic.update_copy_set_files)
+        copy_set_widget.sync_started.connect(lambda widget: self.app_logic.sync_all_copy_sets())
+        copy_set_widget.sync_stopped.connect(lambda widget: self.app_logic.cleanup())
+        
+        self.copy_set_manager.add_copy_set_widget(copy_set_widget)  # Changed to add_copy_set_widget
+        self.app_logic.add_copy_set(new_copy_set)  # Pass the CopySet instance
+
+    def remove_copy_set(self, copy_set_widget):
+        print(f"Removing copy set {copy_set_widget.set_id}")
+        copy_set = self.app_logic.copy_sets.get(copy_set_widget.set_id)
+        if copy_set:
+            self.app_logic.remove_copy_set(copy_set)
+        self.copy_set_manager.on_copy_set_removed(copy_set_widget)
+
+    def update_copy_set_folders(self, widget, copy_set, folder_type, path):
+        if folder_type == "source":
+            copy_set.source_folder = path
+        elif folder_type == "destination":
+            copy_set.destination_folder = path
+        
+        # Update the AppLogic with the new folder paths
+        self.app_logic.update_copy_set(copy_set, copy_set.source_folder, copy_set.destination_folder)
+
+    def update_copy_set_files(self, set_id, selected_files):
+        print(f"Updating files for Copy Set {set_id}")
+        print(f"Selected files: {selected_files}")
+        self.app_logic.update_copy_set_files(set_id, selected_files)
 
     def update_status(self, message):
         if "Starting synchronization" in message:
