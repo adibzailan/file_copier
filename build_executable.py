@@ -1,20 +1,29 @@
 import PyInstaller.__main__
 import os
+import shutil
 
-# Get the absolute path of the current directory
-current_dir = os.path.dirname(os.path.abspath(__file__))
+def build_executable():
+    # Clean previous build artifacts
+    for dir_name in ['build', 'dist']:
+        if os.path.exists(dir_name):
+            shutil.rmtree(dir_name)
+    
+    # PyInstaller options
+    options = [
+        'ui_main.py',  # Main script
+        '--name=FileCopier',  # Output name
+        '--onefile',  # Create a single executable
+        '--windowed',  # Don't show console window
+        '--add-data=ui;ui',  # Include UI package
+        '--add-data=core;core',  # Include core package
+        '--clean',  # Clean PyInstaller cache
+        '--noconfirm',  # Replace output directory without confirmation
+    ]
+    
+    # Run PyInstaller
+    PyInstaller.__main__.run(options)
+    
+    print("Build completed! Executable is in the dist directory.")
 
-PyInstaller.__main__.run([
-    'ui_main.py',  # Your main script
-    '--name=FileCopier',  # Name of the executable
-    '--onefile',  # Create a single executable file
-    '--windowed',  # Use the windowed subsystem (no console)
-    '--icon=resources/icon.ico',  # Icon for the executable (create this if you want)
-    '--add-data=ui;ui',  # Include the ui package
-    '--add-data=core;core',  # Include the core package
-    '--clean',  # Clean PyInstaller cache and remove temporary files
-    '--noconfirm',  # Replace output directory without asking for confirmation
-    f'--distpath={os.path.join(current_dir, "dist")}',  # Output directory for the final executable
-    f'--workpath={os.path.join(current_dir, "build")}',  # Directory for temporary files
-    f'--specpath={os.path.join(current_dir, "build")}',  # Directory for the spec file
-])
+if __name__ == '__main__':
+    build_executable()
